@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><!-- TITLE_PLACEHOLDER --></title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #16213e;
+      padding: 20px 30px;
+      border-bottom: 2px solid #0f3460;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 5px;
+    }
+    .subtitle {
+      color: #888;
+      font-size: 0.9rem;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      padding: 20px;
+    }
+    #canvas-container {
+      flex: 1;
+      background: #0f0f23;
+      border-radius: 8px;
+      border: 2px solid #0f3460;
+      min-height: 500px;
+      position: relative;
+      display: flex;
+      flex-direction: column-reverse;
+    }
+    #canvas-container canvas {
+      flex: 1;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .timeline-bar {
+      background: #16213e;
+      border-top: 2px solid #0f3460;
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .timeline-bar button {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      background: #0f3460;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .timeline-bar button:hover {
+      background: #e94560;
+    }
+    .timeline-bar .status {
+      flex-shrink: 0;
+      min-width: 100px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: #4ecca3;
+    }
+    .timeline-bar input[type="range"] {
+      flex: 1;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 4px;
+      background: #0f3460;
+      outline: none;
+    }
+    .timeline-bar input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #e94560;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><!-- TITLE_PLACEHOLDER --></h1>
+    <div class="subtitle"><!-- SUBTITLE_PLACEHOLDER --></div>
+  </header>
+
+  <main>
+    <div id="canvas-container">
+      <div class="timeline-bar">
+        <button id="btn-play-pause">▶</button>
+        <button id="btn-replay">↻</button>
+        <div class="status" id="timelineStats">0.00s / 0.00s</div>
+        <input type="range" id="scrubber" min="0" max="100" value="0" step="0.01">
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { Scene } from '../../src/scene/Scene';
+
+    // Create scene
+    const container = document.getElementById('canvas-container');
+    const scene = new Scene(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      interactive: true,
+    });
+
+    // Status and scrubber sync
+    const timelineStats = document.getElementById('timelineStats');
+    const scrubber = document.getElementById('scrubber');
+    
+    const updateTimeline = () => {
+      const scheduler = scene['scheduler'];
+      const clock = scheduler?.clock?.toFixed(2) ?? '0.00';
+      const duration = scheduler?.totalDuration?.toFixed(2) ?? '0.00';
+      timelineStats.textContent = `${clock}s / ${duration}s`;
+      
+      if (document.activeElement !== scrubber) {
+        scrubber.value = scheduler?.clock ?? 0;
+      }
+      scrubber.max = Math.max(scheduler?.totalDuration ?? 100, 0.01);
+    };
+    
+    setInterval(updateTimeline, 50);
+
+    scrubber.oninput = (e) => {
+      scene.pause();
+      scene.seek(parseFloat(e.target.value));
+    };
+
+    // Video player controls
+    const playPauseBtn = document.getElementById('btn-play-pause');
+    let isPlaying = false;
+
+    const updatePlayPauseButton = () => {
+      playPauseBtn.textContent = isPlaying ? '⏸' : '▶';
+    };
+
+    playPauseBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        scene.pause();
+        isPlaying = false;
+      } else {
+        if (scene.scheduler.clock >= scene.scheduler.totalDuration) {
+          scene.seek(0);
+        }
+        scene.scheduler.play();
+        isPlaying = true;
+      }
+      updatePlayPauseButton();
+    });
+
+    scene.scheduler.onComplete = () => {
+      isPlaying = false;
+      updatePlayPauseButton();
+    };
+
+    document.getElementById('btn-replay').addEventListener('click', () => {
+      scene.seek(0);
+      scene.scheduler.play();
+      isPlaying = true;
+      updatePlayPauseButton();
+    });
+
+    window.addEventListener('resize', () => {
+      const rect = container.getBoundingClientRect();
+      scene.resize(rect.width, rect.height);
+    });
+
+    // Export for animation script to use
+    window.testScene = scene;
+  </script>
+
+  <!-- ANIMATION_SCRIPT_PLACEHOLDER -->
+</body>
+</html>

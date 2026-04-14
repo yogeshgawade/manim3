@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manim-Web V2 — ZoomedScene Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #16213e;
+      padding: 20px 30px;
+      border-bottom: 2px solid #0f3460;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 5px; }
+    .subtitle { color: #888; font-size: 0.9rem; }
+    main { flex: 1; display: flex; padding: 20px; }
+    #canvas-container {
+      flex: 1;
+      background: #0f0f23;
+      border-radius: 8px;
+      border: 2px solid #0f3460;
+      min-height: 500px;
+      position: relative;
+      display: flex;
+      flex-direction: column-reverse;
+    }
+    #canvas-container canvas { flex: 1; width: 100% !important; height: 100% !important; }
+    .timeline-bar {
+      background: #16213e;
+      border-top: 2px solid #0f3460;
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .timeline-bar button {
+      width: 36px; height: 36px; padding: 0;
+      background: #0f3460; color: #fff;
+      border: none; border-radius: 4px;
+      cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .timeline-bar button:hover { background: #e94560; }
+    .timeline-bar .status {
+      flex-shrink: 0; min-width: 100px;
+      font-family: monospace; font-size: 0.9rem; color: #4ecca3;
+    }
+    .timeline-bar input[type="range"] {
+      flex: 1; height: 8px;
+      -webkit-appearance: none; appearance: none;
+      border-radius: 4px; background: #0f3460; outline: none;
+    }
+    .timeline-bar input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      background: #e94560; border-radius: 50%; cursor: pointer;
+    }
+    .info-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #ccc;
+      pointer-events: none;
+    }
+    .info-panel span { color: #4fc3f7; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Manim-Web V2 — ZoomedScene Demo</h1>
+    <div class="subtitle">Zoom/magnification feature with dual-pass rendering</div>
+  </header>
+
+  <main>
+    <div id="canvas-container">
+      <div class="info-panel">
+        <div><span>Red frame</span> = Camera zoom region</div>
+        <div><span>Purple frame</span> = Zoomed display</div>
+        <div>The display shows a magnified view of what's inside the red frame</div>
+      </div>
+      <div class="timeline-bar">
+        <button id="btn-play-pause">▶</button>
+        <button id="btn-replay">↻</button>
+        <div class="status" id="timelineStats">0.00s / 0.00s</div>
+        <input type="range" id="scrubber" min="0" max="100" value="0" step="0.01">
+      </div>
+    </div>
+  </main>
+
+  <!-- Boilerplate: Scene setup and video player controls -->
+  <script type="module">
+    import { ZoomedScene } from '../../src/scene/ZoomedScene';
+
+    const container = document.getElementById('canvas-container');
+    const scene = new ZoomedScene(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      interactive: true,
+      zoomFactor: 0.3,
+      displayWidth: 4,
+      displayHeight: 3,
+      cameraFrameColor: '#ff4444',
+      displayFrameColor: '#aa44ff',
+      cameraFrameStrokeWidth: 3,
+      displayFrameStrokeWidth: 3,
+    });
+
+    // Video player UI
+    const timelineStats = document.getElementById('timelineStats');
+    const scrubber = document.getElementById('scrubber');
+    
+    const updateTimeline = () => {
+      const scheduler = scene['scheduler'];
+      const clock = scheduler?.clock?.toFixed(2) ?? '0.00';
+      const duration = scheduler?.totalDuration?.toFixed(2) ?? '0.00';
+      timelineStats.textContent = `${clock}s / ${duration}s`;
+      if (document.activeElement !== scrubber) scrubber.value = scheduler?.clock ?? 0;
+      scrubber.max = Math.max(scheduler?.totalDuration ?? 100, 0.01);
+    };
+    setInterval(updateTimeline, 50);
+
+    scrubber.oninput = (e) => { scene.pause(); scene.seek(parseFloat(e.target.value)); };
+
+    // Play/Pause toggle
+    const playPauseBtn = document.getElementById('btn-play-pause');
+    let isPlaying = false;
+    const updateBtn = () => playPauseBtn.textContent = isPlaying ? '⏸' : '▶';
+    
+    playPauseBtn.addEventListener('click', () => {
+      if (isPlaying) { scene.pause(); isPlaying = false; }
+      else {
+        if (scene.scheduler.clock >= scene.scheduler.totalDuration) scene.seek(0);
+        scene.scheduler.play(); isPlaying = true;
+      }
+      updateBtn();
+    });
+    
+    scene.scheduler.onComplete = () => { isPlaying = false; updateBtn(); };
+    document.getElementById('btn-replay').addEventListener('click', () => {
+      scene.seek(0); scene.scheduler.play(); isPlaying = true; updateBtn();
+    });
+
+    window.addEventListener('resize', () => scene.resize(container.clientWidth, container.clientHeight));
+
+    // Export for animation
+    window.testScene = scene;
+  </script>
+
+  <!-- Animation Logic -->
+  <script type="module" src="./phase10.ts"></script>
+</body>
+</html>

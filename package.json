@@ -1,0 +1,32 @@
+{
+  "name": "manim-web-v2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "test:phase1": "vitest run tests/phase1",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/earcut": "^3.0.0",
+    "@types/node": "^25.5.1",
+    "@vitest/browser": "^4.1.2",
+    "@vitest/browser-playwright": "^4.1.2",
+    "@vitest/coverage-v8": "^4.1.2",
+    "jsdom": "^29.0.1",
+    "playwright": "^1.59.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  },
+  "dependencies": {
+    "@types/three": "^0.183.1",
+    "earcut": "^3.0.2",
+    "gsap": "^3.14.2",
+    "jszip": "^3.10.1",
+    "three": "^0.183.2"
+  }
+}

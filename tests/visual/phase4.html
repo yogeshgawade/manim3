@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>manim-web-v2 — Phase 4 Animation Tracks</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; font-family: monospace; color: #eee; }
+    header { padding: 12px 20px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 14px; color: #4fc3f7; }
+    .controls { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+    button { background: #0f3460; border: 1px solid #4fc3f7; color: #4fc3f7; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; }
+    button:hover { background: #4fc3f7; color: #1a1a2e; }
+    .layout { display: flex; height: calc(100vh - 45px); }
+    .sidebar { width: 250px; background: #16213e; border-right: 1px solid #0f3460; padding: 12px; overflow-y: auto; }
+    .sidebar h2 { font-size: 11px; color: #90a4ae; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .test-btn { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 4px; padding: 6px 8px; color: #ccc; font-size: 12px; cursor: pointer; margin-bottom: 2px; }
+    .test-btn:hover { background: #0f3460; color: #4fc3f7; }
+    .test-btn.active { background: #0f3460; color: #4fc3f7; border-left: 2px solid #4fc3f7; }
+    .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    canvas { border: 1px solid #0f3460; display: block; }
+    .timeline { height: 60px; background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 12px; width: 800px; }
+    .stats { font-size: 12px; color: #90a4ae; display: flex; gap: 20px; margin-bottom: 8px; }
+    input[type="range"] { 
+      width: 100%; 
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+      background: linear-gradient(to right, #4fc3f7 0%, #4fc3f7 var(--progress, 0%), #0f3460 var(--progress, 0%), #0f3460 100%);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #4fc3f7;
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 0 4px rgba(0,0,0,0.5);
+    }
+    .log { width: 800px; height: 100px; overflow-y: auto; background: #16213e; border: 1px solid #0f3460; border-radius: 4px; padding: 8px; font-size: 11px; color: #90a4ae; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🎬 Phase 4 — Animation Tracks</h1>
+  <div class="controls">
+    <span id="timeDisplay">0.00s / 0.00s</span>
+    <button id="btnPlay">▶ Play</button>
+    <button id="btnPause">⏸ Pause</button>
+    <button id="btnReset">↺ Reset</button>
+  </div>
+</header>
+<div class="layout">
+  <div class="sidebar">
+    <h2>Tests</h2>
+    <button class="test-btn active" data-test="1">01 — FadeTrack</button>
+    <button class="test-btn" data-test="2">02 — MoveTrack</button>
+    <button class="test-btn" data-test="3">03 — ScaleTrack</button>
+    <button class="test-btn" data-test="4">04 — RotateTrack</button>
+    <button class="test-btn" data-test="5">05 — ColorTrack</button>
+    <button class="test-btn" data-test="6">06 — CreateTrack</button>
+    <button class="test-btn" data-test="7">07 — GroupTrack Parallel</button>
+    <button class="test-btn" data-test="8">08 — GroupTrack Sequence</button>
+    <button class="test-btn" data-test="9">09 — MorphTrack</button>
+    <button class="test-btn" data-test="10">10 — MorphTrack 3D</button>
+    <button class="test-btn" data-test="11">11 — Morph Position</button>
+    <button class="test-btn" data-test="12">12 — Morph Scale</button>
+    <button class="test-btn" data-test="13">13 — Morph Rotate</button>
+    <button class="test-btn" data-test="14">14 — Morph Complex</button>
+    <button class="test-btn" data-test="15">15 — Morph Compound</button>
+    <button class="test-btn" data-test="17">17 — MathTex Morph O→C</button>
+    <button class="test-btn" data-test="18">18 — Multi-Object Simultaneous</button>
+  </div>
+  <div class="main">
+    <canvas id="c" width="800" height="450"></canvas>
+    <div class="timeline">
+      <div class="stats">
+        <span>Clock: <strong id="clockStat">0.00s</strong></span>
+        <span>Duration: <strong id="durStat">0.00s</strong></span>
+      </div>
+      <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1">
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { Renderer } from '../../src/renderer/Renderer.ts';
+import { VMobject } from '../../src/core/VMobject.ts';
+import { Scheduler } from '../../src/scheduler/Scheduler.ts';
+import { FadeTrack } from '../../src/animation/FadeTrack.ts';
+import { MoveTrack } from '../../src/animation/MoveTrack.ts';
+import { ScaleTrack } from '../../src/animation/ScaleTrack.ts';
+import { RotateTrack } from '../../src/animation/RotateTrack.ts';
+import { ColorTrack } from '../../src/animation/ColorTrack.ts';
+import { CreateTrack } from '../../src/animation/CreateTrack.ts';
+import { MorphTrack } from '../../src/animation/MorphTrack.ts';
+import { GroupTrack, parallel, sequence } from '../../src/animation/GroupTrack.ts';
+import { parseSVGPathData, pathDataToVMobjectSimple } from '../../src/mobjects/text/svgPathParser.ts';
+import { MathTex } from '../../src/mobjects/text/MathTex.ts';
+
+const canvas = document.getElementById('c');
+const logEl = document.getElementById('log');
+const scrubber = document.getElementById('scrubber');
+
+function log(msg) {
+  const div = document.createElement('div');
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// Setup renderer
+const renderer = new Renderer(canvas, { width: 800, height: 450, pixelRatio: window.devicePixelRatio || 1 });
+renderer.setBackground('#0f1419');
+
+/** Build a degenerate cubic bezier path from straight-line segments */
+function straightPath(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1];
+    const dx = p1[0] - p0[0], dy = p1[1] - p0[1], dz = (p1[2]??0) - (p0[2]??0);
+    if (i === 0) out.push([...p0]);
+    out.push([p0[0]+dx/3, p0[1]+dy/3, (p0[2]??0)+dz/3]);
+    out.push([p0[0]+2*dx/3, p0[1]+2*dy/3, (p0[2]??0)+2*dz/3]);
+    out.push([...p1]);
+  }
+  return out;
+}
+
+// Create a square VMobject for rotation tests
+function createSquare() {
+  const mob = new VMobject();
+  const s = 3; // Match circle radius
+  // Use straightPath to build proper bezier segments
+  const corners = [[-s,-s,0],[s,-s,0],[s,s,0],[-s,s,0],[-s,-s,0]];
+  mob.points3D = straightPath(corners);
+  mob.strokeWidth = 5;
+  mob.fillOpacity = 0;
+  mob.color = '#4fc3f7';
+  mob.position = [0, 0, 0];
+  return mob;
+}
+
+/** Build a circle as cubic bezier (4 arcs, standard approximation) */
+function circlePath(cx, cy, r) {
+  const c = 0.5522847498;
+  const corners = [
+    [cx+r, cy],  [cx, cy+r],  [cx-r, cy],  [cx, cy-r],
+  ];
+  const handles = [
+    [[cx+r, cy+c*r],[cx+c*r, cy+r]],
+    [[cx-c*r, cy+r],[cx-r, cy+c*r]],
+    [[cx-r, cy-c*r],[cx-c*r, cy-r]],
+    [[cx+c*r, cy-r],[cx+r, cy-c*r]],
+  ];
+  const pts = [];
+  for (let i = 0; i < 4; i++) {
+    const p0 = corners[i];
+    const [h1, h2] = handles[i];
+    const p3 = corners[(i+1)%4];
+    if (i === 0) pts.push([p0[0],p0[1],0]);
+    pts.push([h1[0],h1[1],0]);
+    pts.push([h2[0],h2[1],0]);
+    pts.push([p3[0],p3[1],0]);
+  }
+  return pts;
+}
+
+/** Center points around origin */
+function centerPoints(pts) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+    minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+  }
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  return pts.map(p => [p[0] - cx, p[1] - cy, p[2]]);
+}
+
+/** Convert SVG path to VMobject using ported pipeline */
+function svgPathToVMobject(d, options = {}) {
+  // Parse viewBox if provided: [x, y, width, height]
+  const viewBox = options.viewBox;
+  let scale = options.scale || 0.01;
+  let offsetX = 0, offsetY = 0;
+  const flipY = options.flipY ?? false;
+  
+  if (viewBox && viewBox.length >= 4) {
+    const vbWidth = viewBox[2];
+    if (vbWidth > 0) {
+      // Scale to normalize viewBox width to world units
+      scale = (options.scale || 1) / vbWidth;
+    }
+    offsetX = viewBox[0];
+    offsetY = viewBox[1];
+  }
+  
+  const vmob = pathDataToVMobjectSimple(d, {
+    color: options.color || '#ffffff',
+    strokeWidth: options.strokeWidth || 2,
+    fillOpacity: options.fillOpacity ?? 0,
+    strokeOpacity: options.strokeOpacity ?? 1,
+    scale: scale,
+  });
+  if (!vmob) return null;
+  
+  // Apply viewBox offset and Y-flip to points
+  vmob.points3D = vmob.points3D.map(p => {
+    let x = p[0] - offsetX * scale;
+    let y = p[1] - offsetY * scale;
+    if (flipY) y = -y;
+    return [x, y, p[2]];
+  });
+  
+  return vmob;
+}
+
+// Create a circle VMobject (matches manim-web Circle format)
+function createCircle() {
+  const mob = new VMobject();
+  const r = 3;
+  const k = 0.5522847498; // (4/3) * (sqrt(2) - 1)
+  const cx = 0, cy = 0, cz = 0;
+  
+  // 4 bezier segments, no duplicate anchors
+  const p0 = [cx + r, cy, cz];  // right
+  const p1 = [cx, cy + r, cz];   // top
+  const p2 = [cx - r, cy, cz];  // left
+  const p3 = [cx, cy - r, cz];  // bottom
+  
+  mob.points3D = [
+    // Segment 1: right to top
+    p0, [cx + r, cy + r * k, cz], [cx + r * k, cy + r, cz], p1,
+    // Segment 2: top to left (only handles + anchor)
+    [cx - r * k, cy + r, cz], [cx - r, cy + r * k, cz], p2,
+    // Segment 3: left to bottom
+    [cx - r, cy - r * k, cz], [cx - r * k, cy - r, cz], p3,
+    // Segment 4: bottom to right
+    [cx + r * k, cy - r, cz], [cx + r, cy - r * k, cz], [...p0],
+  ];
+  mob.strokeWidth = 5;
+  mob.fillOpacity = 0.8;
+  mob.position = [0, 0, 0];
+  return mob;
+}
+
+function createDonut() {
+  const mob = new VMobject();
+  const outerR = 3;
+  const innerR = 1.5;
+  const k = 0.5522847498;
+  const cx = 0, cy = 0, cz = 0;
+  
+  // Outer circle (clockwise)
+  const p0 = [cx + outerR, cy, cz];
+  const p1 = [cx, cy + outerR, cz];
+  const p2 = [cx - outerR, cy, cz];
+  const p3 = [cx, cy - outerR, cz];
+  
+  // Inner circle (counter-clockwise for hole)
+  const i0 = [cx + innerR, cy, cz];
+  const i1 = [cx, cy - innerR, cz];
+  const i2 = [cx - innerR, cy, cz];
+  const i3 = [cx, cy + innerR, cz];
+  
+  const outer = [
+    p0, [cx + outerR, cy + outerR * k, cz], [cx + outerR * k, cy + outerR, cz], p1,
+    [cx - outerR * k, cy + outerR, cz], [cx - outerR, cy + outerR * k, cz], p2,
+    [cx - outerR, cy - outerR * k, cz], [cx - outerR * k, cy - outerR, cz], p3,
+    [cx + outerR * k, cy - outerR, cz], [cx + outerR, cy - outerR * k, cz], [...p0],
+  ];
+  
+  const inner = [
+    i0, [cx + innerR, cy - innerR * k, cz], [cx + innerR * k, cy - innerR, cz], i1,
+    [cx - innerR * k, cy - innerR, cz], [cx - innerR, cy - innerR * k, cz], i2,
+    [cx - innerR, cy + innerR * k, cz], [cx - innerR * k, cy + innerR, cz], i3,
+    [cx + innerR * k, cy + innerR, cz], [cx + innerR, cy + innerR * k, cz], [...i0],
+  ];
+  
+  mob.points3D = [...outer, ...inner];
+  mob.setSubpaths([outer.length, inner.length], [true, true]);
+  mob.strokeWidth = 3;
+  mob.fillOpacity = 0.5;
+  mob.color = '#ff6b6b';
+  mob.position = [0, 0, 0];
+  return mob;
+}
+
+let scheduler = new Scheduler();
+let currentMob = null;
+let currentMobs = []; // For multi-object tests
+
+function updateStats() {
+  document.getElementById('timeDisplay').textContent = 
+    `${scheduler.clock.toFixed(2)}s / ${scheduler.totalDuration.toFixed(2)}s`;
+  document.getElementById('clockStat').textContent = scheduler.clock.toFixed(2) + 's';
+  document.getElementById('durStat').textContent = scheduler.totalDuration.toFixed(2) + 's';
+  scrubber.value = scheduler.clock;
+  const progress = scheduler.totalDuration > 0 
+    ? (scheduler.clock / scheduler.totalDuration) * 100 
+    : 0;
+  scrubber.style.setProperty('--progress', `${progress}%`);
+  
+  // Sync all active mobjects
+  const mobsToSync = currentMobs.length > 0 ? currentMobs : (currentMob ? [currentMob] : []);
+  for (const mob of mobsToSync) {
+    mob.dirty = true;
+  }
+  if (mobsToSync.length > 0) {
+    renderer.syncDirty(mobsToSync);
+    renderer.render();
+  }
+}
+
+scheduler.onFrameReady = updateStats;
+
+function clearScene() {
+  scheduler.pause();
+  scheduler.reset();
+  currentMob = null;
+  currentMobs = [];
+}
+
+function setupTest1() {
+  log('Test 1: FadeTrack (opacity 1→0→1)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.strokeRendererType = 'line2';
+  currentMob.strokeWidth = 5;
+  currentMob.fillOpacity = 0.5;
+  currentMob.color = '#4fc3f7';
+  currentMob.position = [0, 0, 0];
+  currentMob.dirty = true;
+  const track1 = new FadeTrack(currentMob, 1, 0, 1);
+  const track2 = new FadeTrack(currentMob, 0, 1, 1);
+  track1.prepare();
+  track2.prepare();
+  scheduler.addTrack(track1, 0);
+  scheduler.addTrack(track2, 1);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest2() {
+  log('Test 2: MoveTrack (left→right)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.dirty = true;
+  const track = new MoveTrack(currentMob, [-3, 0, 0], [3, 0, 0], 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest3() {
+  log('Test 3: ScaleTrack (small→large)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.dirty = true;
+  const track = new ScaleTrack(currentMob, 0.5, 2, 1.5);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest4() {
+  log('Test 4: RotateTrack (0→2π) - uses square for visibility');
+  clearScene();
+  currentMob = createSquare();
+  currentMob.dirty = true;
+  const track = new RotateTrack(currentMob, [0, 0, 0], [0, 0, Math.PI * 2], 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest5() {
+  log('Test 5: ColorTrack (blue→red→green)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.color = '#4fc3f7';
+  currentMob.dirty = true;
+  const track1 = new ColorTrack(currentMob, '#4fc3f7', '#ff5252', 1);
+  const track2 = new ColorTrack(currentMob, '#ff5252', '#69f0ae', 1);
+  track1.prepare();
+  track2.prepare();
+  scheduler.addTrack(track1, 0);
+  scheduler.addTrack(track2, 1);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest6() {
+  log('Test 6: CreateTrack (visibleFraction dash reveal)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.strokeRendererType = 'line2';
+  currentMob.strokeWidth = 4;
+  currentMob.fillOpacity = 0.8;
+  currentMob.dirty = true;
+  const track = new CreateTrack(currentMob, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest7() {
+  log('Test 7: GroupTrack Parallel (move + scale + fade)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.dirty = true;
+  const move = new MoveTrack(currentMob, [-2, 0, 0], [2, 0, 0], 2);
+  const scale = new ScaleTrack(currentMob, 0.5, 1.5, 2);
+  const fade = new FadeTrack(currentMob, 1, 0.3, 2);
+  const group = parallel(move, scale, fade);
+  group.prepare();
+  scheduler.addTrack(group, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest8() {
+  log('Test 8: GroupTrack Sequence (fade out → move → fade in)');
+  clearScene();
+  currentMob = createCircle();
+  currentMob.dirty = true;
+  const fadeOut = new FadeTrack(currentMob, 1, 0, 0.5);
+  const move = new MoveTrack(currentMob, [0, 0, 0], [2, 0, 0], 1);
+  const fadeIn = new FadeTrack(currentMob, 0, 1, 0.5);
+  const group = sequence(fadeOut, move, fadeIn);
+  group.prepare();
+  scheduler.addTrack(group, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([currentMob]);
+  renderer.syncDirty([currentMob]);
+  renderer.render();
+}
+
+function setupTest9() {
+  log('Test 9: MorphTrack (circle → square)');
+  clearScene();
+  const source = createCircle();
+  source.strokeRendererType = 'line2';
+  source.dirty = true;
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.dirty = true;
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([source]);
+  renderer.syncDirty([source]);
+  renderer.render();
+}
+
+function setupTest10() {
+  log('Test 10: MorphTrack 3D (tilted circle → tilted square, both visible)');
+  clearScene();
+  const source = createCircle();
+  source.strokeRendererType = 'line2';
+  source.rotation = [0.5, 0.3, 0.2]; // Tilted in 3D
+  source.dirty = true;
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.rotation = [0.3, -0.5, -0.4]; // Different tilt
+  target.fillOpacity = 0; // Wireframe
+  target.strokeOpacity = 0.3; // Faint outline
+  target.dirty = true;
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  // Show both shapes initially
+  renderer.reconcile([source, target]);
+  renderer.syncDirty([source, target]);
+  renderer.render();
+}
+
+function setupTest11() {
+  log('Test 11: Morph with Position (circle left → square right)');
+  clearScene();
+  const source = createCircle();
+  source.strokeRendererType = 'line2';
+  source.position = [-2, 0, 0];
+  source.dirty = true;
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.position = [2, 0, 0];
+  target.fillOpacity = 0;
+  target.strokeOpacity = 0.3;
+  target.dirty = true;
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([source, target]);
+  renderer.syncDirty([source, target]);
+  renderer.render();
+}
+
+function setupTest12() {
+  log('Test 12: Morph with Scale (small circle → large square)');
+  clearScene();
+  const source = createCircle();
+  source.strokeRendererType = 'line2';
+  source.scale = [0.5, 0.5, 1];
+  source.dirty = true;
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.scale = [1.5, 1.5, 1];
+  target.fillOpacity = 0;
+  target.strokeOpacity = 0.3;
+  target.dirty = true;
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([source, target]);
+  renderer.syncDirty([source, target]);
+  renderer.render();
+}
+
+function setupTest13() {
+  log('Test 13: Morph with Rotation (circle 0° → square 90° in plane)');
+  clearScene();
+  const source = createCircle();
+  source.strokeRendererType = 'line2';
+  source.rotation = [0, 0, 0];
+  source.dirty = true;
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.rotation = [0, 0, Math.PI / 2]; // 90 degree Z rotation
+  target.fillOpacity = 0;
+  target.strokeOpacity = 0.3;
+  target.dirty = true;
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([source, target]);
+  renderer.syncDirty([source, target]);
+  renderer.render();
+}
+
+function setupTest14() {
+  log('Test 14: Morph Complex (position + rotation + tilt)');
+  clearScene();
+  const source = createCircle();
+  source.strokeRendererType = 'line2';
+  source.position = [-1.5, 1, 0];
+  source.rotation = [0.3, 0, 0.5]; // Tilt + rotate
+  source.dirty = true;
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.position = [1.5, -1, 0];
+  target.rotation = [0.2, 0.4, -0.3]; // Different tilt + rotate
+  target.fillOpacity = 0;
+  target.strokeOpacity = 0.3;
+  target.dirty = true;
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([source, target]);
+  renderer.syncDirty([source, target]);
+  renderer.render();
+}
+
+function setupTest15() {
+  log('Test 15: Morph Compound → Simple (donut → filled square)');
+  clearScene();
+  
+  // Create donut (compound path with hole)
+  const source = createDonut();
+  source.strokeRendererType = 'line2';
+  source.dirty = true;
+  
+  // Create simple filled square (no hole)
+  const target = createSquare();
+  target.strokeRendererType = 'line2';
+  target.fillOpacity = 0.5;
+  target.dirty = true;
+  
+  currentMob = source;
+  const track = new MorphTrack(source, target, 2);
+  track.prepare();
+  scheduler.addTrack(track, 0);
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([source]);
+  renderer.syncDirty([source]);
+  renderer.render();
+}
+
+function setupTest17() {
+  log('Test 17: MathTex Morph O → C');
+  clearScene();
+  
+  // Create MathTex for O (left) - source
+  const mathTexO = new MathTex({
+    latex: 'O',
+    color: '#ff6b6b',
+    fontSize: 2,
+    position: [-2, 0, 0],
+    fillOpacity: 0.8,
+    strokeWidth: 2,
+    displayMode: false,
+  });
+  
+  // Create MathTex for C (right) - target
+  const mathTexC = new MathTex({
+    latex: 'C',
+    color: '#4fc3f7',
+    fontSize: 2,
+    position: [2, 0, 0],
+    fillOpacity: 0,
+    strokeWidth: 2,
+    displayMode: false,
+  });
+  
+  Promise.all([mathTexO.waitForRender(), mathTexC.waitForRender()]).then(() => {
+    log('Both MathTexs rendered successfully');
+    
+    // Extract VMobjects from each MathTex
+    const getFirstVMobject = (tex) => {
+      for (const child of tex.children) {
+        if (child instanceof VMobject) {
+          child.strokeRendererType = 'line2';
+          return child;
+        }
+        if (child.children) {
+          for (const grandchild of child.children) {
+            if (grandchild instanceof VMobject) {
+              grandchild.strokeRendererType = 'line2';
+              return grandchild;
+            }
+          }
+        }
+      }
+      return null;
+    };
+    
+    const source = getFirstVMobject(mathTexO);
+    const target = getFirstVMobject(mathTexC);
+    
+    if (!source || !target) {
+      log('Error: Could not extract VMobjects from MathTex');
+      return;
+    }
+    
+    // Position the glyphs
+    source.position = [-2, 0, 0];
+    source.dirty = true;
+    target.position = [2, 0, 0];
+    target.dirty = true;
+    
+    currentMob = source;
+    
+    // Create morph track from O to C
+    const track = new MorphTrack(source, target, 2);
+    track.prepare();
+    scheduler.addTrack(track, 0);
+    
+    scrubber.max = scheduler.totalDuration;
+    renderer.reconcile([source, target]);
+    renderer.syncDirty([source, target]);
+    renderer.render();
+    log('Test 17: MathTex O → C morph ready');
+  }).catch((err) => {
+    log('Error rendering MathTex: ' + err.message);
+  });
+}
+
+function setupTest18() {
+  log('Test 18: Multi-Object Simultaneous (morph + rotate + fade)');
+  clearScene();
+  
+  // Create triangle helper
+  function createTriangle() {
+    const mob = new VMobject();
+    const s = 3;
+    const pts = [[0, s, 0], [-s*0.866, -s*0.5, 0], [s*0.866, -s*0.5, 0], [0, s, 0]];
+    mob.points3D = straightPath(pts);
+    mob.strokeWidth = 4;
+    mob.fillOpacity = 0.3;
+    mob.color = '#69f0ae';
+    return mob;
+  }
+  
+  // Object 1: Circle morphing to Square (left)
+  const morphSource = createCircle();
+  morphSource.strokeRendererType = 'line2';
+  morphSource.position = [-3, 1, 0];
+  morphSource.dirty = true;
+  const morphTarget = createSquare();
+  morphTarget.strokeRendererType = 'line2';
+  morphTarget.position = [-3, 1, 0];
+  morphTarget.dirty = true;
+  const morphTrack = new MorphTrack(morphSource, morphTarget, 3);
+  morphTrack.prepare();
+  
+  // Object 2: Triangle rotating (center)
+  const rotater = createTriangle();
+  rotater.strokeRendererType = 'line2';
+  rotater.position = [0, -1, 0];
+  rotater.dirty = true;
+  const rotateTrack = new RotateTrack(rotater, [0, 0, 0], [0, 0, Math.PI * 2], 3);
+  rotateTrack.prepare();
+  
+  // Object 3: Donut fading in (right)
+  const fader = createDonut();
+  fader.strokeRendererType = 'line2';
+  fader.position = [3, 1, 0];
+  fader.opacity = 0;
+  fader.dirty = true;
+  const fadeTrack = new FadeTrack(fader, 0, 1, 3);
+  fadeTrack.prepare();
+  
+  // Track all objects for syncing
+  currentMobs = [morphSource, morphTarget, rotater, fader];
+  
+  // Run all animations in parallel
+  const group = parallel(morphTrack, rotateTrack, fadeTrack);
+  group.prepare();
+  scheduler.addTrack(group, 0);
+  
+  scrubber.max = scheduler.totalDuration;
+  renderer.reconcile([morphSource, morphTarget, rotater, fader]);
+  renderer.syncDirty([morphSource, morphTarget, rotater, fader]);
+  renderer.render();
+  log('Test 18: 3 objects - morph (left), rotate (center), fade (right)');
+}
+
+const testSetups = {
+  1: setupTest1, 2: setupTest2, 3: setupTest3, 4: setupTest4,
+  5: setupTest5, 6: setupTest6, 7: setupTest7, 8: setupTest8, 9: setupTest9, 10: setupTest10,
+  11: setupTest11, 12: setupTest12, 13: setupTest13, 14: setupTest14, 15: setupTest15, 17: setupTest17, 18: setupTest18,
+};
+
+document.getElementById('btnPlay').onclick = () => {
+  scheduler.play();
+  log('Play');
+};
+
+document.getElementById('btnPause').onclick = () => {
+  scheduler.pause();
+  log('Pause');
+};
+
+document.getElementById('btnReset').onclick = () => {
+  scheduler.pause();
+  scheduler.seek(0);
+  const currentTest = document.querySelector('.test-btn.active').dataset.test;
+  testSetups[currentTest]();
+  log('Reset');
+};
+
+scrubber.oninput = (e) => {
+  scheduler.pause();
+  scheduler.seek(parseFloat(e.target.value));
+};
+
+document.querySelectorAll('.test-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.test-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    testSetups[btn.dataset.test]();
+  };
+});
+
+setupTest1();
+updateStats();
+log('Phase 4 harness loaded - using WebGL canvas');
+</script>
+</body>
+</html>

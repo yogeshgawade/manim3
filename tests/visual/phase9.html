@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manim-Web — Geometry Objects</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:        #0a0a0b;
+      --surface:   #111114;
+      --surface2:  #18181d;
+      --border:    rgba(255,255,255,0.07);
+      --border2:   rgba(255,255,255,0.12);
+      --accent:    #7c6fef;
+      --accent-dim: rgba(124,111,239,0.18);
+      --text:      rgba(255,255,255,0.88);
+      --muted:     rgba(255,255,255,0.32);
+      --muted2:    rgba(255,255,255,0.14);
+      --green:     #28c840;
+      --yellow:    #febc2e;
+      --red:       #ff5f57;
+      --font-ui:   'Syne', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .player {
+      width: 960px;
+      max-width: 100%;
+      background: var(--surface);
+      border-radius: 14px;
+      border: 0.5px solid var(--border2);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Title bar ── */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 16px;
+      background: var(--surface2);
+      border-bottom: 0.5px solid var(--border);
+      user-select: none;
+    }
+    .dots { display: flex; gap: 6px; }
+    .dot {
+      width: 11px; height: 11px; border-radius: 50%;
+    }
+    .dot.red    { background: var(--red); }
+    .dot.yellow { background: var(--yellow); }
+    .dot.green  { background: var(--green); }
+    .scene-name {
+      flex: 1;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      margin-right: 52px; /* compensate for dots width */
+    }
+
+    /* ── Canvas ── */
+    #canvas-container {
+      background: #000;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+    }
+    #canvas-container canvas {
+      display: block;
+      max-width: 100%;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      background: var(--surface2);
+      border-top: 0.5px solid var(--border);
+      padding: 10px 18px 14px;
+    }
+
+    /* Scrubber */
+    .scrubber-row {
+      padding: 10px 0 8px;
+    }
+    .scrubber-track {
+      position: relative;
+      height: 3px;
+      background: var(--muted2);
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .scrubber-fill {
+      height: 100%;
+      width: 35%;
+      background: var(--accent);
+      border-radius: 3px;
+      pointer-events: none;
+      transition: width 0.05s linear;
+    }
+    .scrubber-thumb {
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: #fff;
+      position: absolute;
+      top: 50%; left: 35%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+      pointer-events: none;
+      transition: left 0.05s linear;
+    }
+    /* invisible range input layered over visual track */
+    .scrubber-input {
+      position: absolute;
+      inset: -8px 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      margin: 0;
+    }
+
+    /* Buttons row */
+    .btn-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .ctrl-btn {
+      width: 30px; height: 30px;
+      background: transparent;
+      border: 0.5px solid var(--border2);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.06); border-color: var(--border2); }
+    .ctrl-btn:active { transform: scale(0.95); }
+    .ctrl-btn.accent {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: #b9b2f8;
+    }
+    .ctrl-btn.accent:hover { background: rgba(124,111,239,0.28); }
+
+    .time-current {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      background: rgba(255,255,255,0.05);
+      padding: 3px 9px;
+      border-radius: 5px;
+      letter-spacing: 0.03em;
+      min-width: 52px;
+      text-align: center;
+    }
+    .spacer { flex: 1; }
+    .time-total {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+
+    /* Speed picker */
+    .speed-group {
+      display: flex;
+      gap: 2px;
+      background: rgba(255,255,255,0.04);
+      border: 0.5px solid var(--border);
+      border-radius: 7px;
+      padding: 2px;
+    }
+    .speed-btn {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 3px 7px;
+      background: transparent;
+      border: none;
+      border-radius: 5px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      letter-spacing: 0.01em;
+    }
+    .speed-btn.active {
+      background: var(--accent-dim);
+      color: #b9b2f8;
+    }
+    .speed-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: var(--text); }
+
+    /* ── Status bar ── */
+    .statusbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 7px 18px;
+      background: var(--surface);
+      border-top: 0.5px solid var(--border);
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--muted2);
+    }
+    .status-dot.ready { background: var(--green); box-shadow: 0 0 0 2px rgba(40,200,64,0.2); }
+    .kbd {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      padding: 1px 5px;
+      background: var(--muted2);
+      border-radius: 3px;
+      color: var(--muted);
+    }
+    .status-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Export button and progress */
+    .export-btn {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 5px 10px;
+      background: var(--accent-dim);
+      border: 0.5px solid var(--accent);
+      border-radius: 5px;
+      color: #b9b2f8;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .export-btn:hover { background: rgba(124,111,239,0.28); }
+    .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .fps-select {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 4px 8px;
+      background: var(--surface2);
+      border: 0.5px solid var(--border2);
+      border-radius: 5px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .export-progress {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .export-progress.active { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div class="player">
+
+  <!-- Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="scrubber-row">
+      <div class="scrubber-track" id="scrubber-track">
+        <div class="scrubber-fill" id="scrubber-fill"></div>
+        <div class="scrubber-thumb" id="scrubber-thumb"></div>
+        <input type="range" class="scrubber-input" id="scrubber" min="0" max="100" value="0" step="0.01">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <!-- Play/Pause -->
+      <button class="ctrl-btn accent" id="btn-play-pause" title="Play / Pause (Space)">
+        <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+          <path d="M0 0 L10 6 L0 12 Z"/>
+        </svg>
+      </button>
+
+      <!-- Replay -->
+      <button class="ctrl-btn" id="btn-replay" title="Restart">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 7A6 6 0 1 0 3.5 2.5"/>
+          <path d="M1 1v4h4"/>
+        </svg>
+      </button>
+
+      <!-- Current time -->
+      <span class="time-current" id="time-current">0.00s</span>
+
+      <div class="spacer"></div>
+
+      <!-- Total duration -->
+      <span class="time-total" id="time-total">0.00s</span>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <div class="status-pill">
+      <div class="status-dot ready" id="status-dot"></div>
+      <span id="status-text">ready</span>
+    </div>
+    <div class="status-pill">
+      <span class="kbd">Space</span> play/pause &nbsp; <span class="kbd">R</span> restart
+    </div>
+    <div class="status-right">
+      <select class="fps-select" id="fps-select" title="Export FPS">
+        <option value="24">24 FPS</option>
+        <option value="30" selected>30 FPS</option>
+        <option value="60">60 FPS</option>
+      </select>
+      <select class="fps-select" id="res-select" title="Export Resolution">
+        <option value="960x540">960p</option>
+        <option value="1920x1080">1080p</option>
+        <option value="3840x2160">4K</option>
+      </select>
+      <button class="export-btn" id="btn-export" title="Export frames as PNG sequence">Export Frames</button>
+      <span class="export-progress" id="export-progress"></span>
+      <div class="status-pill">960 × 540</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Scene bootstrap -->
+<script type="module">
+  import { Scene } from '../../src/scene/Scene';
+  import { FrameExporter } from '../../src/export/FrameExporter';
+
+  const container = document.getElementById('canvas-container');
+  const scene = new Scene(container, { width: 960, height: 540, preserveDrawingBuffer: true });
+  const exporter = new FrameExporter();
+
+  const scrubber     = document.getElementById('scrubber');
+  const fill         = document.getElementById('scrubber-fill');
+  const thumb        = document.getElementById('scrubber-thumb');
+  const timeCurrent  = document.getElementById('time-current');
+  const timeTotal    = document.getElementById('time-total');
+  const playBtn      = document.getElementById('btn-play-pause');
+  const statusText   = document.getElementById('status-text');
+
+  // Scrubber visual sync
+  const syncScrubber = () => {
+    const scheduler = scene['scheduler'];
+    const clock    = scheduler?.clock ?? 0;
+    const duration = Math.max(scheduler?.totalDuration ?? 1, 0.01);
+    const pct = (clock / duration) * 100;
+    fill.style.width  = pct + '%';
+    thumb.style.left  = pct + '%';
+    timeCurrent.textContent = clock.toFixed(2) + 's';
+    timeTotal.textContent   = duration.toFixed(2) + 's';
+    if (document.activeElement !== scrubber) scrubber.value = clock;
+    scrubber.max = duration;
+  };
+  setInterval(syncScrubber, 40);
+
+  scrubber.addEventListener('input',  e => { scene.pause(); scene.seek(+e.target.value); setPlaying(false); });
+  scrubber.addEventListener('change', e => { scene.pause(); scene.seek(+e.target.value); });
+
+  // Play / Pause
+  const playIcon  = `<svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><path d="M0 0 L10 6 L0 12 Z"/></svg>`;
+  const pauseIcon = `<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><rect x="0" y="0" width="3.5" height="12" rx="1"/><rect x="7.5" y="0" width="3.5" height="12" rx="1"/></svg>`;
+
+  let isPlaying = false;
+  const setPlaying = (v) => {
+    isPlaying = v;
+    playBtn.innerHTML = v ? pauseIcon : playIcon;
+    statusText.textContent = v ? 'playing' : 'paused';
+  };
+
+  playBtn.addEventListener('click', () => {
+    if (isPlaying) { scene.pause(); setPlaying(false); }
+    else {
+      if (scene['scheduler'].clock >= scene['scheduler'].totalDuration) scene.seek(0);
+      scene['scheduler'].play(); setPlaying(true);
+    }
+  });
+
+  document.getElementById('btn-replay').addEventListener('click', () => {
+    scene.seek(0); scene['scheduler'].play(); setPlaying(true);
+  });
+
+  scene['scheduler'].onComplete = () => { setPlaying(false); statusText.textContent = 'done'; };
+
+  // Export functionality
+  const exportBtn = document.getElementById('btn-export');
+  const fpsSelect = document.getElementById('fps-select');
+  const resSelect = document.getElementById('res-select');
+  const exportProgress = document.getElementById('export-progress');
+  const canvas = container.querySelector('canvas');
+
+  exportBtn.addEventListener('click', async () => {
+    if (!canvas) return;
+
+    const fps = parseInt(fpsSelect.value, 10);
+    const [width, height] = resSelect.value.split('x').map(v => parseInt(v, 10));
+    const wasPlaying = isPlaying;
+
+    // Pause and reset
+    scene.pause();
+    setPlaying(false);
+    exportBtn.disabled = true;
+    exportProgress.classList.add('active');
+
+    try {
+      const frames = await exporter.exportAnimation(
+        scene,
+        canvas,
+        { fps, width, height, filenamePrefix: 'frame' },
+        (progress) => {
+          exportProgress.textContent = `Frame ${progress.currentFrame}/${progress.totalFrames}`;
+        }
+      );
+
+      exportProgress.textContent = 'Saving ZIP...';
+      await exporter.downloadAsZip(frames, 'frame');
+
+      statusText.textContent = 'exported';
+    } catch (err) {
+      console.error('Export failed:', err);
+      statusText.textContent = 'export failed';
+    } finally {
+      exportBtn.disabled = false;
+      exportProgress.classList.remove('active');
+      exportProgress.textContent = '';
+
+      if (wasPlaying) {
+        scene['scheduler'].play();
+        setPlaying(true);
+      }
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); playBtn.click(); }
+    if (e.key.toLowerCase() === 'r') document.getElementById('btn-replay').click();
+  });
+
+  window.testScene = scene;
+</script>
+
+<!-- Animation -->
+<script type="module" src="./phase11-valuetrack.ts"></script>
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>manim-web-v2 — Visual Harness</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a2e; font-family: monospace; color: #eee; }
+    header { padding: 12px 20px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 14px; color: #4fc3f7; }
+    .controls { display: flex; gap: 8px; margin-left: auto; }
+    button { background: #0f3460; border: 1px solid #4fc3f7; color: #4fc3f7; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; }
+    button:hover { background: #4fc3f7; color: #1a1a2e; }
+    button.active { background: #4fc3f7; color: #1a1a2e; }
+    .layout { display: flex; height: calc(100vh - 45px); }
+    .sidebar { width: 200px; background: #16213e; border-right: 1px solid #0f3460; padding: 12px; overflow-y: auto; }
+    .sidebar h2 { font-size: 11px; color: #90a4ae; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .test-btn { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 4px; padding: 6px 8px; color: #ccc; font-size: 12px; cursor: pointer; margin-bottom: 2px; }
+    .test-btn:hover { background: #0f3460; color: #4fc3f7; }
+    .test-btn.active { background: #0f3460; color: #4fc3f7; border-left: 2px solid #4fc3f7; }
+    .test-btn.pass { color: #81c784; }
+    .test-btn.fail { color: #e57373; }
+    .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    canvas { border: 1px solid #0f3460; display: block; }
+    .info { font-size: 11px; color: #90a4ae; text-align: center; }
+    .log { width: 800px; max-height: 120px; overflow-y: auto; background: #16213e; border: 1px solid #0f3460; border-radius: 4px; padding: 8px; font-size: 11px; color: #90a4ae; }
+    .log .ok  { color: #81c784; }
+    .log .err { color: #e57373; }
+    .log .info-line { color: #4fc3f7; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🎬 manim-web-v2 visual harness</h1>
+  <div class="controls">
+    <button id="runAll">▶ Run All</button>
+    <button id="toggleBg">Toggle BG</button>
+  </div>
+</header>
+<div class="layout">
+  <div class="sidebar">
+    <h2>Tests</h2>
+    <div id="testList"></div>
+  </div>
+  <div class="main">
+    <canvas id="c" width="800" height="450"></canvas>
+    <div class="info" id="info">Select a test from the sidebar</div>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE         from 'three';
+import { Renderer }       from '../../src/renderer/Renderer.ts';
+import { VMobject }       from '../../src/core/VMobject.ts';
+import { Group }          from '../../src/core/Group.ts';
+import { VGroup }         from '../../src/core/VGroup.ts';
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const canvas  = document.getElementById('c');
+const logEl   = document.getElementById('log');
+const infoEl  = document.getElementById('info');
+let renderer  = null;
+let darkBg    = true;
+
+function log(msg, type = 'info') {
+  const line = document.createElement('div');
+  line.className = type === 'ok' ? 'ok' : type === 'err' ? 'err' : 'info-line';
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function clearLog() { logEl.innerHTML = ''; }
+
+function mkRenderer() {
+  if (renderer) renderer.dispose();
+  renderer = new Renderer(canvas, { width: 800, height: 450 });
+}
+
+/** Build a degenerate cubic bezier path from straight-line segments */
+function straightPath(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1];
+    const dx = p1[0] - p0[0], dy = p1[1] - p0[1], dz = (p1[2]??0) - (p0[2]??0);
+    if (i === 0) out.push([...p0]);
+    out.push([p0[0]+dx/3, p0[1]+dy/3, (p0[2]??0)+dz/3]);
+    out.push([p0[0]+2*dx/3, p0[1]+2*dy/3, (p0[2]??0)+2*dz/3]);
+    out.push([...p1]);
+  }
+  return out;
+}
+
+/** Build a circle as cubic bezier (4 arcs, standard approximation) */
+function circlePath(cx, cy, r) {
+  const k = 0.5522847498;
+  const segs = [
+    [[cx+r,cy],[cx+r,cy+k*r],[cx+k*r,cy+r],[cx,cy+r]],
+    [[cx,cy+r],[-cx+k*r+cx*2,cy+r],[-cx+r+cx*2-k*r+cx,cy+k*r],[-cx+r+cx*2-r+cx,cy]],
+    [[cx-r,cy],[cx-r,cy-k*r],[cx-k*r,cy-r],[cx,cy-r]],
+    [[cx,cy-r],[cx+k*r,cy-r],[cx+r,cy-k*r],[cx+r,cy]],
+  ];
+  // Cleaner: use parametric
+  const pts = [];
+  const N = 4;
+  const c = 0.5522847498;
+  const corners = [
+    [cx+r, cy],  [cx, cy+r],  [cx-r, cy],  [cx, cy-r],
+  ];
+  const handles = [
+    [[cx+r, cy+c*r],[cx+c*r, cy+r]],
+    [[cx-c*r, cy+r],[cx-r, cy+c*r]],
+    [[cx-r, cy-c*r],[cx-c*r, cy-r]],
+    [[cx+c*r, cy-r],[cx+r, cy-c*r]],
+  ];
+  for (let i = 0; i < N; i++) {
+    const p0 = corners[i];
+    const [h1, h2] = handles[i];
+    const p3 = corners[(i+1)%N];
+    if (i === 0) pts.push([p0[0],p0[1],0]);
+    pts.push([h1[0],h1[1],0]);
+    pts.push([h2[0],h2[1],0]);
+    pts.push([p3[0],p3[1],0]);
+  }
+  return pts;
+}
+
+/** Read pixels and count non-background pixels */
+function countFilledPixels(gl, bgColor = [26,26,46]) {
+  const w = canvas.width, h = canvas.height;
+  const buf = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+  let count = 0;
+  for (let i = 0; i < buf.length; i += 4) {
+    const r = buf[i], g = buf[i+1], b = buf[i+2], a = buf[i+3];
+    if (a > 10 && !(Math.abs(r-bgColor[0])<10 && Math.abs(g-bgColor[1])<10 && Math.abs(b-bgColor[2])<10)) count++;
+  }
+  return count;
+}
+
+function assert(cond, msg) {
+  if (cond) log(`  ✓ ${msg}`, 'ok');
+  else       log(`  ✗ ${msg}`, 'err');
+  return cond;
+}
+
+// ── Test Definitions ───────────────────────────────────────────────────────
+
+const TESTS = [
+  {
+    name: '01 — stroke only (line)',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.strokeRendererType = 'line2'
+      m.color = '#ff6b6b';
+      m.strokeWidth = 4;
+      m.fillOpacity = 0;
+      m.points3D = straightPath([[-2,0,0],[2,0,0]]);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Rendered horizontal stroke — should see a teal line');
+      return true;
+    }
+  },
+  {
+    name: '02 — filled circle',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.strokeRendererType = 'line2'; 
+      m.color = '#ffffff';
+      m.strokeWidth = 10;
+      m.fillOpacity = 0.8;
+      m.fillColor = '#ff6b6b';
+      m.points3D = circlePath(0, 0, 1.5);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Rendered filled circle — red fill, white stroke');
+      return true;
+    }
+  },
+  {
+    name: '03 — filled rectangle',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.color = '#ffd700';
+      //m.strokeRendererType = 'line2'
+      m.strokeWidth = 4;
+      m.fillOpacity = 1;
+      m.fillColor = '#4fc3f7';
+      const corners = [[-2,-1,0],[2,-1,0],[2,1,0],[-2,1,0],[-2,-1,0]];
+      m.points3D = straightPath(corners);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Rendered filled rectangle — blue fill, gold stroke');
+      return true;
+    }
+  },
+  {
+    name: '04 — visible = false → blank',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.color = '#ff0000';
+      m.strokeWidth = 6;
+      m.points3D = straightPath([[-2,0,0],[2,0,0]]);
+      m.visible = false;
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('visible=false — canvas should be blank (dark bg only)');
+      return true;
+    }
+  },
+  {
+    name: '05 — VGroup of shapes',
+    async run() {
+      mkRenderer();
+      const circle = new VMobject();
+      circle.color = '#81c784';
+      circle.strokeWidth = 3;
+      circle.fillOpacity = 0.6;
+      circle.fillColor = '#81c784';
+      circle.points3D = circlePath(-1.5, 0, 0.8);
+      circle.dirty = true;
+
+      const rect = new VMobject();
+      rect.color = '#ffb74d';
+      rect.strokeWidth = 3;
+      rect.fillOpacity = 0.6;
+      rect.fillColor = '#ffb74d';
+      rect.points3D = straightPath([[0.5,-0.8,0],[2.5,-0.8,0],[2.5,0.8,0],[0.5,0.8,0],[0.5,-0.8,0]]);
+      rect.dirty = true;
+
+      renderer.reconcile([circle, rect]);
+      renderer.syncDirty([circle, rect]);
+      renderer.render();
+      log('Rendered VGroup — green circle left, orange rect right');
+      return true;
+    }
+  },
+  {
+    name: '06 — opacity 0.3',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.color = '#ffffff';
+      m.strokeWidth = 5;
+      m.opacity = 0.3;
+      m.fillOpacity = 0.3;
+      m.fillColor = '#ffffff';
+      m.points3D = circlePath(0, 0, 1.5);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Rendered semi-transparent circle — should see faint white circle');
+      return true;
+    }
+  },
+  {
+    name: '07 — dirty flag only syncs once',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.color = '#e040fb';
+      m.strokeWidth = 4;
+      m.fillOpacity = 0;
+      m.points3D = straightPath([[-1,-1,0],[1,1,0]]);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      assert(!m.dirty, 'dirty cleared after first sync');
+      renderer.syncDirty([m]); // second call — should no-op
+      renderer.render();
+      log('Rendered diagonal line — purple');
+      return true;
+    }
+  },
+  {
+    name: '08 — resize',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.color = '#4fc3f7';
+      m.strokeWidth = 4;
+      m.fillOpacity = 0;
+      m.points3D = straightPath([[-2,0,0],[2,0,0]]);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      renderer.resize(800, 450);  // resize back to same size
+      renderer.render();
+      log('Resize 800×450 → no crash, still renders');
+      assert(true, 'resize did not throw');
+      return true;
+    }
+  },
+  {
+    name: '09 — multi-subpath (shape with hole)',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.strokeRendererType = 'line2';
+      m.color = '#4fc3f7';
+      m.strokeWidth = 4;
+      m.fillOpacity = 1;
+      // Outer square + inner square (hole)
+      const outer = straightPath([[-2,-2,0],[2,-2,0],[2,2,0],[-2,2,0],[-2,-2,0]]);
+      const inner = straightPath([[-1,-1,0],[1,-1,0],[1,1,0],[-1,1,0],[-1,-1,0]]);
+      m.points3D = [...outer, ...inner];
+      m.setSubpaths([outer.length, inner.length], [true, true]);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Multi-subpath shape — outer square with hole (inner square)');
+      log('Should see 2 separate closed strokes, inner one not filled');
+      return true;
+    }
+  },
+  {
+    name: '10 — dash animation (visibleFraction)',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.strokeRendererType = 'line2';
+      m.color = '#ff6b6b';
+      m.strokeWidth = 6;
+      m.fillOpacity = 0;
+      m.points3D = straightPath([[-2,0,0],[2,0,0]]);
+      m.visibleFraction = 0.5;  // Half revealed
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Dash animation test — visibleFraction=0.5, should see half the line');
+      // Animate to full
+      for (let i = 0; i <= 10; i++) {
+        m.visibleFraction = i / 10;
+        m.dirty = true;
+        renderer.syncDirty([m]);
+        renderer.render();
+        await new Promise(r => setTimeout(r, 50));
+      }
+      log('Animated from 0 to full — should see line draw on');
+      return true;
+    }
+  },
+  {
+    name: '11 — closed path corner-wrap',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.strokeRendererType = 'line2';
+      m.color = '#81c784';
+      m.strokeWidth = 8;
+      m.fillOpacity = 0;
+      // Triangle (closed path)
+      m.points3D = straightPath([[-1.5,-1,0],[1.5,-1,0],[0,1.5,0],[-1.5,-1,0]]);
+      // setSubpaths marks it as closed for corner-wrap
+      m.setSubpaths([m.points3D.length], [true]);
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('Closed triangle with corner-wrap — corner should have no gap');
+      return true;
+    }
+  },
+  {
+    name: '12 — BezierSDF tapering (variable width)',
+    async run() {
+      mkRenderer();
+      const m = new VMobject();
+      m.color = '#ffd700';
+      m.fillOpacity = 0;
+      // Use BezierSDFRenderer (default)
+      // Create a curved arc using proper bezier control points
+      // Arc from (-2, 0) up to (0, 1.5) then down to (2, 0)
+      const p0 = [-2, 0, 0];
+      const p3 = [0, 1.5, 0];  // peak
+      const p6 = [2, 0, 0];
+      // Control points for smooth arc
+      const c1 = [-1, 1, 0];
+      const c2 = [-0.5, 1.5, 0];
+      const c3 = [0.5, 1.5, 0];
+      const c4 = [1, 1, 0];
+      // Points in cubic bezier format: [p0, c1, c2, p3, c3, c4, p6]
+      // Actually need [p0, c1, c2, p3] for first segment, [p3, c3, c4, p6] for second
+      m.points3D = [
+        p0, c1, c2, p3,  // first curve
+        p3, c3, c4, p6   // second curve (p3 is shared)
+      ];
+      // Set tapering: narrow at ends (2px), wide in middle (15px)
+      // Indices: 0(p0), 1(c1), 2(c2), 3(p3), 4(p3 dup), 5(c3), 6(c4), 7(p6)
+      m.strokeWidths = [2, 5, 12, 15, 15, 12, 5, 2];
+      m.dirty = true;
+      renderer.reconcile([m]);
+      renderer.syncDirty([m]);
+      renderer.render();
+      log('BezierSDF tapering — curved arc with variable width');
+      log('Gold arc: thin (2px) → thick (15px) → thin (2px)');
+      return true;
+    }
+  },
+];
+
+// ── UI ─────────────────────────────────────────────────────────────────────
+
+const listEl = document.getElementById('testList');
+const btns = [];
+
+TESTS.forEach((t, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'test-btn';
+  btn.textContent = t.name;
+  btn.onclick = () => runTest(i);
+  listEl.appendChild(btn);
+  btns.push(btn);
+});
+
+async function runTest(i) {
+  btns.forEach(b => b.classList.remove('active'));
+  btns[i].classList.add('active');
+  clearLog();
+  infoEl.textContent = TESTS[i].name;
+  log(`▶ Running: ${TESTS[i].name}`, 'info');
+  try {
+    const ok = await TESTS[i].run();
+    // Debug: check if renderer has children
+    if (renderer) {
+      const children = renderer.threeScene?.children?.length || 0;
+      log(`Debug: Scene has ${children} children`);
+      // Force an extra render
+      renderer.render();
+      log('Debug: Extra render() called');
+    }
+    btns[i].classList.toggle('pass', !!ok);
+    btns[i].classList.toggle('fail', !ok);
+    log(ok ? '✓ Passed' : '✗ Failed', ok ? 'ok' : 'err');
+  } catch(e) {
+    log(`✗ Error: ${e.message}`, 'err');
+    console.error(e);
+    btns[i].classList.add('fail');
+  }
+}
+
+document.getElementById('runAll').onclick = async () => {
+  for (let i = 0; i < TESTS.length; i++) {
+    await runTest(i);
+    await new Promise(r => setTimeout(r, 200));
+  }
+};
+
+document.getElementById('toggleBg').onclick = () => {
+  darkBg = !darkBg;
+  document.body.style.background = darkBg ? '#1a1a2e' : '#ffffff';
+  canvas.style.background = darkBg ? '#1a1a2e' : '#f5f5f5';
+};
+</script>
+</body>
+</html>
