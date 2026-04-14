@@ -29,3 +29,8 @@ export * from './CircumscribeTrack';
 export * from './FocusOnTrack';
 export * from './ShowPassingFlashTrack';
 export * from './ShowPassingFlashWithThinningStrokeWidthTrack'; // Exports as TaperedFlashTrack
+
+// Growing animations (ported from Python Manim)
+export * from './GrowTrack';
+export * from './GrowArrowTrack';
+export * from './SpinInTrack';
