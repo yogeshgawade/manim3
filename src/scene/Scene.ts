@@ -63,6 +63,7 @@ export class Scene {
     this.logicalScene.add(...mobjects);
     // Capture initial states for reset functionality
     for (const mob of mobjects) {
+      mob.scene = this;  // Set scene reference for scene-level mobjects
       this.initialStates.set(mob.id, mob.captureState());
       // Also capture for all children in the family
       for (const familyMob of mob.getFamily()) {
@@ -87,6 +88,7 @@ export class Scene {
     this.logicalScene.addForeground(...mobjects);
     // Capture initial states for foreground mobjects too
     for (const mob of mobjects) {
+      mob.scene = this;  // Set scene reference for scene-level mobjects
       this.initialStates.set(mob.id, mob.captureState());
       for (const familyMob of mob.getFamily()) {
         if (!this.initialStates.has(familyMob.id)) {

@@ -34,3 +34,12 @@ export * from './ShowPassingFlashWithThinningStrokeWidthTrack'; // Exports as Ta
 export * from './GrowTrack';
 export * from './GrowArrowTrack';
 export * from './SpinInTrack';
+
+// Shrink animations (opposite of growing)
+export * from './ShrinkTrack';
+
+// Movement effects
+export * from './SpiralInTrack';
+
+// Transformations
+export * from './CrossFadeTrack';

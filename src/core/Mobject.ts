@@ -1,5 +1,6 @@
 // NO import from 'three' — ever.
 import type { Vec3, Color, MobjectState, UpdaterFn, InteractionHandlers } from './types';
+import type { Scene } from '../scene/Scene';
 
 let _idCounter = 0;
 const genId = () => `mob_${++_idCounter}`;
@@ -20,6 +21,7 @@ export class Mobject {
   interactive:   boolean          = false;
   children:      Mobject[]        = [];
   handlers:      InteractionHandlers = {};
+  scene?:        Scene;            // Set when added directly to scene
 
   // Target copy for animations (set by generateTarget)
   targetCopy!: Mobject;

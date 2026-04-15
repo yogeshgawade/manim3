@@ -1,13 +1,11 @@
-// Phase 14 - Single Growing Animation Test
-// Tests one animation at a time: Fade In -> GrowFromPoint -> Fade Out
+// Phase 14 - Growing + Shrink Animation Test
+// Tests: Fade In -> GrowFromCenter -> Hold -> ShrinkToCenter -> Fade Out
 import type { Scene } from '../../src/scene/Scene';
 import { Square } from '../../src/mobjects/geometry/Rectangle';
-import { Dot } from '../../src/mobjects/geometry/Dot';
 import { fadeIn, fadeOut } from '../../src/animation/FadeTrack';
-import { growFromPoint } from '../../src/animation/GrowTrack';
+import { growFromCenter } from '../../src/animation/GrowTrack';
+import { shrinkToCenter } from '../../src/animation/ShrinkTrack';
 import { smooth } from '../../src/utils/rateFunctions';
-import { ORIGIN } from '../../src/core/types';
-import { RED } from '../../src/constants/colors';
 
 declare global {
   interface Window {
@@ -17,50 +15,43 @@ declare global {
 
 const scene = window.testScene as Scene;
 
-// Create a reference dot at origin (where the square will grow FROM)
-const originDot = new Dot({
-  point: ORIGIN,
-  color: RED,
-  radius: 0.08,
-});
-scene.add(originDot);
-
-// Create a square positioned away from origin
+// Create a square in the center
 const square = new Square({
-  sideLength: 1.5,
+  sideLength: 2,
   color: '#58C4DD',
   fillOpacity: 0.3,
 });
-square.moveTo([2.5, 1.5, 0]); // Final position
 
 // Start invisible
-//square.opacity = 0;
+square.opacity = 0;
 
 scene.add(square);
 
 async function runAnimation() {
   scene.scheduler.reset();
 
-  // Sequence: Fade In -> Grow -> Hold -> Fade Out
-  // Phase 1: Fade in the origin dot first
-  scene.at(0).play(fadeIn(originDot, 0.3));
+  // Sequence: Fade In -> Grow -> Hold -> Shrink -> Fade Out
+  // Phase 1: Fade in
+  scene.at(0).play(fadeIn(square, 0.5));
 
-  // Phase 2: Square grows FROM origin (red dot) TO its final position
-  // The square starts at scale 0 at origin, then scales up while moving to [2.5, 1.5, 0]
-  scene.at('+=0.2').play(growFromPoint(square, ORIGIN, 1.5, smooth));
+  // Phase 2: GrowFromCenter - scales from 0 to full size
+  scene.at('+=0.3').play(growFromCenter(square, 1, smooth));
 
   // Phase 3: Hold for viewing
   scene.addBookmark('hold');
 
-  // Phase 4: Fade out
-  scene.at('+=0.5').play(fadeOut(square, 0.5));
-  scene.at('+=0').play(fadeOut(originDot, 0.3));
+  // Phase 4: ShrinkToCenter - opposite of grow, scales to 0
+  scene.at('+=0.5').play(shrinkToCenter(square, 1, smooth));
 
-  console.log('[Phase14] growFromPoint test loaded!');
-  console.log('- Phase 1: Red dot appears at origin');
-  console.log('- Phase 2: Square grows FROM origin dot TO its final position');
+  // Phase 5: Fade out (now invisible but completes the pattern)
+  scene.at('+=0.3').play(fadeOut(square, 0.2));
+
+  console.log('[Phase14] Grow + Shrink test loaded!');
+  console.log('- Phase 1: Fade in (0.5s)');
+  console.log('- Phase 2: GrowFromCenter (+0.3s, 1s duration)');
   console.log('- Phase 3: Hold (bookmark)');
-  console.log('- Phase 4: Fade out');
+  console.log('- Phase 4: ShrinkToCenter (+0.5s, 1s duration) - opposite of grow!');
+  console.log('- Phase 5: Fade out');
 }
 
 runAnimation().catch(console.error);
