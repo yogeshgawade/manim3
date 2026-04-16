@@ -3,20 +3,23 @@ import type { Mobject } from '../core/Mobject';
 import type { VMobject } from '../core/VMobject';
 import type { RateFunction } from '../core/types';
 import { CreateTrack } from './CreateTrack';
+import { FadeTrack } from './FadeTrack';
 
 /**
- * Extract all leaf VMobjects (with points3D) from a Mobject hierarchy.
- * Same strategy as VGroupMorphTrack: skip pure container groups, only return renderable glyphs.
+ * Extract all leaf Mobjects from a hierarchy.
+ * Returns all children recursively, including Text and VMobjects.
  */
-function getVMobjectChildren(mob: Mobject): VMobject[] {
-  const result: VMobject[] = [];
+function getAllChildren(mob: Mobject): Mobject[] {
+  const result: Mobject[] = [];
   for (const child of mob.children) {
-    const vmob = child as VMobject;
-    if (vmob.points3D && vmob.points3D.length > 0) {
-      result.push(vmob);
+    // If this child has no children of its own, it's a leaf
+    if (child.children.length === 0) {
+      result.push(child);
     }
-    // Recurse into nested groups
-    result.push(...getVMobjectChildren(child));
+    // Otherwise recurse to find leaves
+    else {
+      result.push(...getAllChildren(child));
+    }
   }
   return result;
 }
@@ -33,7 +36,7 @@ export class CreateGroupTrack implements AnimationTrack {
   id = crypto.randomUUID();
   remover = false;
 
-  private childTracks: CreateTrack[] = [];
+  private childTracks: AnimationTrack[] = [];
   private _childrenBuilt = false;
 
   get mobject(): Mobject {
@@ -71,16 +74,31 @@ export class CreateGroupTrack implements AnimationTrack {
     if (this._childrenBuilt) return;
     this._childrenBuilt = true;
 
-    const leaves = getVMobjectChildren(this.targetGroup);
+    const leaves = getAllChildren(this.targetGroup);
 
-    for (const vmob of leaves) {
-      const track = new CreateTrack(
-        vmob,
-        this.trackDuration,
-        this.trackRateFunc,
-        this.strokeFillLagRatio,
-      );
-      this.childTracks.push(track);
+    for (const mob of leaves) {
+      const vmob = mob as VMobject;
+      // Use CreateTrack for VMobjects with points (stroke animation)
+      if (vmob.points3D && vmob.points3D.length > 0) {
+        const track = new CreateTrack(
+          vmob,
+          this.trackDuration,
+          this.trackRateFunc,
+          this.strokeFillLagRatio,
+        );
+        this.childTracks.push(track);
+      }
+      // Use FadeTrack for non-VMobjects (Text, etc.) - simple fade in
+      else {
+        const track = new FadeTrack(
+          mob,
+          0,
+          1,
+          this.trackDuration,
+          this.trackRateFunc,
+        );
+        this.childTracks.push(track);
+      }
     }
   }
 

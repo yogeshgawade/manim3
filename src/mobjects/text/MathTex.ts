@@ -177,18 +177,6 @@ export class MathTex extends VGroup {
   }
 
   /**
-   * Override shift() to delegate to children like VGroup does.
-   * This ensures MorphMatchingShapes works correctly with MathTex.
-   */
-  override shift(delta: Vec3): this {
-    for (const child of this.children) {
-      child.shift(delta);
-    }
-    this.markDirty();
-    return this;
-  }
-
-  /**
    * Start the async rendering process.
    */
   protected _startRender(): void {
@@ -315,19 +303,6 @@ export class MathTex extends VGroup {
       const pts = vmob.points3D;
       const transformed = pts.map((p) => [(p[0] - cx) * s, (p[1] - cy) * s, p[2]]);
       vmob.points3D = transformed;
-    }
-
-    // Bake group position into children's points and reset group position to origin
-    // Store original position for billboard usage
-    const [gx, gy, gz] = this.position;
-    if (gx !== 0 || gy !== 0 || gz !== 0) {
-      // Store world position before reset (for billboard children rotation center)
-      (this as any)._worldPosition = [gx, gy, gz];
-      for (const vmob of vmobjects) {
-        const pts = vmob.points3D;
-        vmob.points3D = pts.map((p) => [p[0] + gx, p[1] + gy, p[2] + gz]);
-      }
-      this.position = [0, 0, 0];
     }
   }
 

@@ -4,13 +4,14 @@ import type { RateFunction } from '../core/types';
 import { FadeTrack } from './FadeTrack';
 
 /**
- * FadeGroupTrack — Fades an entire group of mobjects (including all descendants).
+ * FadeGroupTrack â€” Fades an entire group of mobjects (including all descendants).
  * Follows the same composite pattern as VGroupMorphTrack.
  */
 export class FadeGroupTrack implements AnimationTrack {
   id = crypto.randomUUID();
   remover = false;
   private childTracks: FadeTrack[] = [];
+  private prepared = false;
 
   get mobject() {
     return this.targetMobject;
@@ -40,7 +41,9 @@ export class FadeGroupTrack implements AnimationTrack {
   ) { }
 
   prepare(): void {
-    // Always clear before rebuilding — safe for re-seek / re-prepare
+    if (this.prepared) return;
+    this.prepared = true;
+    // Always clear before rebuilding â€” safe for re-seek / re-prepare
     for (const track of this.childTracks) track.dispose();
     this.childTracks = [];
     // Get all family members (this + all descendants)
@@ -80,6 +83,7 @@ export class FadeGroupTrack implements AnimationTrack {
       track.dispose();
     }
     this.childTracks = [];
+    this.prepared = false;
   }
 }
 

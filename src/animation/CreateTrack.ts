@@ -28,25 +28,27 @@ export class CreateTrack extends BaseAnimationTrack {
     this._prepared = true;
 
     const vmob = this.mobject as VMobject;
-    
-    // Hide stroke initially
-    vmob.visibleFraction = 0;
-    
-    // Save original fill and hide it initially (for two-phase animation)
+
+    // Only save originals — hiding happens in interpolate(0)
     this._originalFillOpacity = vmob.fillOpacity;
     this._hasFill = this._originalFillOpacity > 0;
-    if (this._hasFill) {
-      vmob.fillOpacity = 0;
-    }
-    
-    // Save original opacity and handle transparent objects
     this._originalOpacity = vmob.opacity;
     this._wasTransparent = this._originalOpacity < 1;
-    if (this._wasTransparent) {
-      vmob.opacity = 0;
-    }
-    
-    this.mobject.markDirty();
+
+    // Remove these lines:
+    // vmob.visibleFraction = 0;
+    // if (this._hasFill) vmob.fillOpacity = 0;
+    // if (this._wasTransparent) vmob.opacity = 0;
+    // this.mobject.markDirty();
+  }
+
+  dispose(): void {
+    this._prepared = false;
+    const vmob = this.mobject as VMobject;
+    vmob.visibleFraction = 1;
+    if (this._hasFill) vmob.fillOpacity = this._originalFillOpacity;
+    if (this._wasTransparent) vmob.opacity = this._originalOpacity;
+    vmob.markDirty();
   }
 
   interpolate(alpha: number): void {
@@ -83,7 +85,7 @@ export class CreateTrack extends BaseAnimationTrack {
           vmob.fillOpacity = 0;
         }
         // Make stroke visible during draw phase (even if original was 0)
-        vmob.opacity = 1;
+        vmob.opacity = alpha === 0 ? 0 : 1;
         // Stroke reveals from 0 to 1 over first part
         vmob.visibleFraction = alpha / split;
       } else {
@@ -100,6 +102,8 @@ export class CreateTrack extends BaseAnimationTrack {
 
     this.mobject.markDirty();
   }
+
+
 }
 
 // Factory function
