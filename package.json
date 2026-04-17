@@ -1,32 +1,69 @@
 {
-  "name": "manim-web-v2",
+  "name": "manim3",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "A TypeScript animation library for creating mathematical animations, inspired by Python's Manim",
+  "author": "",
+  "license": "MIT",
+  "keywords": [
+    "animation",
+    "math",
+    "manim",
+    "threejs",
+    "webgl",
+    "visualization",
+    "mathematics",
+    "graphics"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --out-dir dist",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:phase1": "vitest run tests/phase1",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "peerDependencies": {
+    "three": "^0.183.0"
+  },
+  "dependencies": {
+    "earcut": "^3.0.2",
+    "gsap": "^3.14.2",
+    "jszip": "^3.10.1"
+  },
   "devDependencies": {
     "@types/earcut": "^3.0.0",
     "@types/node": "^25.5.1",
+    "@types/three": "^0.183.1",
     "@vitest/browser": "^4.1.2",
     "@vitest/browser-playwright": "^4.1.2",
     "@vitest/coverage-v8": "^4.1.2",
     "jsdom": "^29.0.1",
     "playwright": "^1.59.1",
+    "tsup": "^8.0.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   },
-  "dependencies": {
-    "@types/three": "^0.183.1",
-    "earcut": "^3.0.2",
-    "gsap": "^3.14.2",
-    "jszip": "^3.10.1",
-    "three": "^0.183.2"
+  "publishConfig": {
+    "access": "public"
   }
 }
