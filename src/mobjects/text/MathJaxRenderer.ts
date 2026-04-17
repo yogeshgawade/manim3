@@ -335,7 +335,7 @@ export async function renderLatexToSVG(
   // ------------------------------------------------------------------
   // Convert SVG paths to VMobjects
   // ------------------------------------------------------------------
-  const vmobjectGroup = svgToVMobjects(svgElement, { color, scale: fontScale, flipY: false });
+  const vmobjectGroup = svgToVMobjects(svgElement, { color, scale: fontScale, flipY: true });
 
   return {
     svgElement,

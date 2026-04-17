@@ -24,6 +24,11 @@ export {
   type MathTexOptions,
 } from './MathTex';
 
+export {
+  Tex,
+  type TexOptions,
+} from './Tex';
+
 // Canvas-based text rendering
 export {
   Text,
@@ -49,8 +54,4 @@ export {
   type DecimalNumberOptions,
 } from './DecimalNumber';
 
-// Variable display (label = value)
-export {
-  Variable,
-  type VariableOptions,
-} from './Variable';
+
