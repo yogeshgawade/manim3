@@ -1,6 +1,6 @@
 {
   "name": "manim3",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A TypeScript animation library for creating mathematical animations, inspired by Python's Manim",
   "author": "",
   "license": "MIT",
