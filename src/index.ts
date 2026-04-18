@@ -52,6 +52,9 @@ export * from './renderer';
 export { Scheduler } from './scheduler/Scheduler';
 export { AudioScheduler } from './scheduler/AudioScheduler';
 
+// Player
+export { ManimPlayer } from './player/ManimPlayer';
+
 // Mobjects - Geometry
 export * from './mobjects/geometry';
 

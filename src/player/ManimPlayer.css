@@ -1,0 +1,271 @@
+/* ManimPlayer Component Styles */
+
+.manim-player {
+  width: 960px;
+  max-width: 100%;
+  background: var(--surface, #111114);
+  border-radius: 14px;
+  border: 0.5px solid var(--border2, rgba(255, 255, 255, 0.12));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Canvas ── */
+.manim-player__canvas-container {
+  background: #000;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.manim-player__canvas-container canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* ── Controls ── */
+.manim-player__controls {
+  background: var(--surface2, #18181d);
+  border-top: 0.5px solid var(--border, rgba(255, 255, 255, 0.07));
+  padding: 10px 18px 14px;
+}
+
+/* Scrubber */
+.manim-player__scrubber-row {
+  padding: 10px 0 8px;
+}
+
+.manim-player__scrubber-track {
+  position: relative;
+  height: 3px;
+  background: var(--muted2, rgba(255, 255, 255, 0.14));
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.manim-player__scrubber-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #7c6fef);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.manim-player__scrubber-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px var(--accent-dim, rgba(124, 111, 239, 0.18));
+  pointer-events: none;
+}
+
+.manim-player__scrubber-input {
+  position: absolute;
+  inset: -8px 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  margin: 0;
+}
+
+/* Buttons row */
+.manim-player__btn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  position: relative;
+  z-index: 10;
+}
+
+.manim-player__btn {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 0.5px solid var(--border2, rgba(255, 255, 255, 0.12));
+  border-radius: 7px;
+  color: var(--text, rgba(255, 255, 255, 0.88));
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.manim-player__btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border2, rgba(255, 255, 255, 0.12));
+}
+
+.manim-player__btn:active {
+  transform: scale(0.95);
+}
+
+.manim-player__btn--accent {
+  background: var(--accent-dim, rgba(124, 111, 239, 0.18));
+  border-color: var(--accent, #7c6fef);
+  color: #b9b2f8;
+}
+
+.manim-player__btn--accent:hover {
+  background: rgba(124, 111, 239, 0.28);
+}
+
+.manim-player__time-current {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px 9px;
+  border-radius: 5px;
+  letter-spacing: 0.03em;
+  min-width: 52px;
+  text-align: center;
+}
+
+.manim-player__spacer {
+  flex: 1;
+}
+
+.manim-player__time-total {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  color: var(--muted, rgba(255, 255, 255, 0.32));
+  letter-spacing: 0.03em;
+}
+
+/* Speed picker */
+.manim-player__speed-group {
+  display: flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.5px solid var(--border, rgba(255, 255, 255, 0.07));
+  border-radius: 7px;
+  padding: 2px;
+}
+
+.manim-player__speed-btn {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10.5px;
+  padding: 3px 7px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--muted, rgba(255, 255, 255, 0.32));
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  letter-spacing: 0.01em;
+}
+
+.manim-player__speed-btn--active {
+  background: var(--accent-dim, rgba(124, 111, 239, 0.18));
+  color: #b9b2f8;
+}
+
+.manim-player__speed-btn:hover:not(.manim-player__speed-btn--active) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text, rgba(255, 255, 255, 0.88));
+}
+
+/* ── Status bar ── */
+.manim-player__statusbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 18px;
+  background: var(--surface, #111114);
+  border-top: 0.5px solid var(--border, rgba(255, 255, 255, 0.07));
+}
+
+.manim-player__status-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  color: var(--muted, rgba(255, 255, 255, 0.32));
+  letter-spacing: 0.03em;
+}
+
+.manim-player__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted2, rgba(255, 255, 255, 0.14));
+}
+
+.manim-player__status-dot--ready {
+  background: var(--green, #28c840);
+  box-shadow: 0 0 0 2px rgba(40, 200, 64, 0.2);
+}
+
+.manim-player__kbd {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 9px;
+  padding: 1px 5px;
+  background: var(--muted2, rgba(255, 255, 255, 0.14));
+  border-radius: 3px;
+  color: var(--muted, rgba(255, 255, 255, 0.32));
+}
+
+.manim-player__status-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Export controls */
+.manim-player__export-btn {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10.5px;
+  padding: 5px 10px;
+  background: var(--accent-dim, rgba(124, 111, 239, 0.18));
+  border: 0.5px solid var(--accent, #7c6fef);
+  border-radius: 5px;
+  color: #b9b2f8;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.manim-player__export-btn:hover {
+  background: rgba(124, 111, 239, 0.28);
+}
+
+.manim-player__export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manim-player__select {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  padding: 4px 8px;
+  background: var(--surface2, #18181d);
+  border: 0.5px solid var(--border2, rgba(255, 255, 255, 0.12));
+  border-radius: 5px;
+  color: var(--text, rgba(255, 255, 255, 0.88));
+  cursor: pointer;
+}
+
+.manim-player__export-progress {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  color: var(--accent, #7c6fef);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.manim-player__export-progress--active {
+  opacity: 1;
+}

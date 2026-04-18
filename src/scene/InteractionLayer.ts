@@ -164,7 +164,7 @@ export class InteractionLayer {
       const node = this.renderer.getRenderNode(mob.id);
       if (!node) continue;
 
-      this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, (this.renderer as any).camera);
+      this.raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), (this.renderer as any).camera);
 
       const intersects = this.raycaster.intersectObject(node.threeObject, true);
       if (intersects.length > 0) {

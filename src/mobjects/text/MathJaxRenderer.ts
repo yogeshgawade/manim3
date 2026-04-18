@@ -24,9 +24,10 @@ export interface MathJaxRenderResult {
 // ---------------------------------------------------------------------------
 
 interface MathJaxConstructor {
-  tex2svg: (tex: string, options?: { display?: boolean }) => HTMLElement;
+  tex2svg?: (tex: string, options?: { display?: boolean }) => HTMLElement;
   startup?: {
     defaultReady?: () => void;
+    ready?: () => void;
     output?: {
       fontCache?: {
         defs?: unknown;
@@ -35,9 +36,16 @@ interface MathJaxConstructor {
     adaptor?: {
       outerHTML: (node: unknown) => string;
     };
+    typeset?: boolean;
   };
   tex?: {
     macros?: Record<string, string>;
+    inlineMath?: string[][];
+    displayMath?: string[][];
+    packages?: Record<string, string[]>;
+  };
+  svg?: {
+    fontCache?: 'none' | 'global';
   };
 }
 

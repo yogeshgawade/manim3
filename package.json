@@ -35,7 +35,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean --out-dir dist",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean --out-dir dist && cp src/player/ManimPlayer.css dist/",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:phase1": "vitest run tests/phase1",

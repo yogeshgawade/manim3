@@ -220,7 +220,7 @@ export class Surface3D extends Mobject {
 
   // ── Copy ─────────────────────────────────────────────────────────────────
 
-  override copy(): Surface3D {
+  override copy(): this {
     const copy = new Surface3D({
       uvFunction: this.uvFunction,
       uRange: this.uRange,
@@ -239,6 +239,6 @@ export class Surface3D extends Mobject {
     copy.position = [...this.position];
     copy.rotation = [...this.rotation];
     copy.scale = [...this.scale];
-    return copy;
+    return copy as this;
   }
 }
