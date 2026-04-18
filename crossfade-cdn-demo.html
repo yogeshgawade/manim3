@@ -6,7 +6,7 @@
   <title>Manim3 CrossFade Demo (CDN)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./dist/ManimPlayer.css">
+  <link rel="stylesheet" href="https://unpkg.com/manim3@1.0.1/dist/ManimPlayer.css">
   <style>
     *, *::before, *::after {
       margin: 0;
@@ -67,7 +67,7 @@
   <div id="player-container"></div>
 
   <script type="module">
-    import { Scene, ManimPlayer, Square, Circle, crossFade, moveTo, fadeIn, fadeOut, smooth } from  './dist/index.mjs';
+    import { Scene, ManimPlayer, Square, Circle, crossFade, moveTo, fadeIn, fadeOut, smooth } from 'https://esm.sh/manim3@1.0.1';
 
     const container = document.getElementById('player-container');
     const scene = new Scene(container, {
