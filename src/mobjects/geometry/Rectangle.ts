@@ -12,6 +12,8 @@ export interface RectangleOptions {
   height?: number;
   /** Stroke color as CSS color string. Default: Manim's blue (#58C4DD) */
   color?: string;
+  /** Fill color as CSS color string. Default: same as color */
+  fillColor?: string;
   /** Fill opacity from 0 to 1. Default: 0 */
   fillOpacity?: number;
   /** Stroke width in pixels. Default: 4 (Manim's default) */
@@ -49,6 +51,7 @@ export class Rectangle extends VMobject {
       width = 2,
       height = 1,
       color = BLUE,
+      fillColor,
       fillOpacity = 0,
       strokeWidth = DEFAULT_STROKE_WIDTH,
       center = [0, 0, 0],
@@ -59,6 +62,7 @@ export class Rectangle extends VMobject {
     this._centerPoint = [...center];
 
     this.color = color;
+    this.fillColor = fillColor ?? color;
     this.fillOpacity = fillOpacity;
     this.strokeWidth = strokeWidth;
 
@@ -236,6 +240,7 @@ export class Rectangle extends VMobject {
       height: this._height,
       center: this._centerPoint,
       color: this.color,
+      fillColor: this.fillColor,
       fillOpacity: this.fillOpacity,
       strokeWidth: this.strokeWidth,
     });
@@ -276,6 +281,7 @@ export class Square extends Rectangle {
       sideLength: this.getWidth(),
       center: this.getRectCenter(),
       color: this.color,
+      fillColor: this.fillColor,
       fillOpacity: this.fillOpacity,
       strokeWidth: this.strokeWidth,
     });

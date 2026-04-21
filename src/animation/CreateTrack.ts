@@ -29,17 +29,13 @@ export class CreateTrack extends BaseAnimationTrack {
 
     const vmob = this.mobject as VMobject;
 
-    // Only save originals — hiding happens in interpolate(0)
+
     this._originalFillOpacity = vmob.fillOpacity;
     this._hasFill = this._originalFillOpacity > 0;
     this._originalOpacity = vmob.opacity;
     this._wasTransparent = this._originalOpacity < 1;
 
-    // Remove these lines:
-    // vmob.visibleFraction = 0;
-    // if (this._hasFill) vmob.fillOpacity = 0;
-    // if (this._wasTransparent) vmob.opacity = 0;
-    // this.mobject.markDirty();
+
   }
 
   dispose(): void {
@@ -51,9 +47,15 @@ export class CreateTrack extends BaseAnimationTrack {
     vmob.markDirty();
   }
 
+  reset(): void {
+    (this.mobject as VMobject).visibleFraction = 1;
+    this.mobject.markDirty();
+  }
+
   interpolate(alpha: number): void {
     const vmob = this.mobject as VMobject;
     const split = this.strokeFillLagRatio;
+
 
     // Handle edge cases
     if (split <= 0) {
@@ -106,7 +108,4 @@ export class CreateTrack extends BaseAnimationTrack {
 
 }
 
-// Factory function
-export function create(mob: VMobject, duration = 1, rateFunc?: RateFunction, strokeFillLagRatio?: number): CreateTrack {
-  return new CreateTrack(mob, duration, rateFunc, strokeFillLagRatio);
-}
+

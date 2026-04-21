@@ -87,23 +87,33 @@ export class FadeGroupTrack implements AnimationTrack {
   }
 }
 
-// Factory functions
-export function fadeInGroup(
-  group: Mobject,
-  duration = 1,
-  rateFunc?: RateFunction,
-  lagRatio = 0,
-): FadeGroupTrack {
+export interface FadeOptions {
+  /** Duration of the animation in seconds. Default: 1 */
+  duration?: number;
+  /** Rate function controlling animation pacing */
+  rateFunc?: RateFunction;
+  /** Stagger ratio for animating children sequentially (0 = simultaneous). Default: 0 */
+  lagRatio?: number;
+}
+
+/**
+ * Fade in a mobject (and all its descendants).
+ * @param group The mobject or group to fade in
+ * @param options Fade options (duration, rateFunc, lagRatio)
+ */
+export function fadeIn(group: Mobject, options: FadeOptions = {}): FadeGroupTrack {
+  const { duration = 1, rateFunc, lagRatio = 0 } = options;
   const track = new FadeGroupTrack(group, 0, 1, duration, rateFunc, lagRatio);
   return track;
 }
 
-export function fadeOutGroup(
-  group: Mobject,
-  duration = 1,
-  rateFunc?: RateFunction,
-  lagRatio = 0,
-): FadeGroupTrack {
+/**
+ * Fade out a mobject (and all its descendants).
+ * @param group The mobject or group to fade out
+ * @param options Fade options (duration, rateFunc, lagRatio)
+ */
+export function fadeOut(group: Mobject, options: FadeOptions = {}): FadeGroupTrack {
+  const { duration = 1, rateFunc, lagRatio = 0 } = options;
   const track = new FadeGroupTrack(group, 1, 0, duration, rateFunc, lagRatio);
   track.remover = true;
   return track;

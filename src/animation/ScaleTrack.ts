@@ -44,9 +44,17 @@ export class ScaleTrack extends BaseAnimationTrack {
   }
 }
 
+export interface ScaleToOptions {
+  /** Duration of the animation in seconds. Default: 1 */
+  duration?: number;
+  /** Rate function controlling animation pacing */
+  rateFunc?: RateFunction;
+}
+
 // Factory function
 // Passes null for start scale so it's captured when animation begins
-export function scaleTo(mob: Mobject, target: number | Vec3, duration = 1, rateFunc?: RateFunction): ScaleTrack {
+export function scaleTo(mob: Mobject, target: number | Vec3, options: ScaleToOptions = {}): ScaleTrack {
+  const { duration = 1, rateFunc } = options;
   const targetVec = typeof target === 'number' ? [target, target, 1] as Vec3 : target;
   return new ScaleTrack(mob, null, targetVec, duration, rateFunc);
 }

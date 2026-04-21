@@ -10,6 +10,8 @@ export interface PolygonOptions {
   vertices?: Vec3[];
   /** Stroke color as CSS color string. Default: Manim's blue (#58C4DD) */
   color?: string;
+  /** Fill color as CSS color string. Default: same as color */
+  fillColor?: string;
   /** Fill opacity from 0 to 1. Default: 0 */
   fillOpacity?: number;
   /** Stroke width in pixels. Default: 4 (Manim's default) */
@@ -56,6 +58,7 @@ export class Polygon extends VMobject {
     const {
       vertices = defaultVertices,
       color = BLUE,
+      fillColor,
       fillOpacity = 0,
       strokeWidth = DEFAULT_STROKE_WIDTH,
     } = options;
@@ -63,6 +66,7 @@ export class Polygon extends VMobject {
     this._vertices = vertices.map(v => [...v]);
 
     this.color = color;
+    this.fillColor = fillColor ?? color;
     this.fillOpacity = fillOpacity;
     this.strokeWidth = strokeWidth;
 
@@ -166,6 +170,7 @@ export class Polygon extends VMobject {
     const clone = new Polygon({
       vertices: this._vertices,
       color: this.color,
+      fillColor: this.fillColor,
       fillOpacity: this.fillOpacity,
       strokeWidth: this.strokeWidth,
     });

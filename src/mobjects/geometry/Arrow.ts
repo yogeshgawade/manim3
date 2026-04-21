@@ -55,6 +55,7 @@ class ArrowTip extends VMobject {
   constructor(tipPoint: number[], tipLeft: number[], tipRight: number[], color: string) {
     super();
     this.color = color;
+    this.fillColor = color;
     this.fillOpacity = 1;
     this.strokeWidth = 0;
 
@@ -141,8 +142,6 @@ export class Arrow extends Group {
    * Generate the arrow parts (shaft line + tip triangle)
    */
   private _generateParts(): void {
-    this.children = [];
-
     const [x0, y0, z0] = this._start;
     const [x1, y1, z1] = this._end;
 
@@ -151,9 +150,7 @@ export class Arrow extends Group {
     const dz = z1 - z0;
     const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-    if (length === 0) {
-      return;
-    }
+    if (length === 0) return;
 
     const dirX = dx / length;
     const dirY = dy / length;
@@ -161,43 +158,51 @@ export class Arrow extends Group {
 
     let perpX: number, perpY: number, perpZ: number;
     if (Math.abs(dirZ) > 0.99) {
-      perpX = 1;
-      perpY = 0;
-      perpZ = 0;
+      perpX = 1; perpY = 0; perpZ = 0;
     } else {
-      perpX = -dirY;
-      perpY = dirX;
-      perpZ = 0;
+      perpX = -dirY; perpY = dirX; perpZ = 0;
       const perpLen = Math.sqrt(perpX * perpX + perpY * perpY);
-      perpX /= perpLen;
-      perpY /= perpLen;
+      perpX /= perpLen; perpY /= perpLen;
     }
 
     const tipBaseX = x1 - dirX * this._tipLength;
     const tipBaseY = y1 - dirY * this._tipLength;
     const tipBaseZ = z1 - dirZ * this._tipLength;
 
-    const tipLeft = [
-      tipBaseX + perpX * this._tipWidth,
-      tipBaseY + perpY * this._tipWidth,
-      tipBaseZ + perpZ * this._tipWidth,
-    ];
-    const tipRight = [
-      tipBaseX - perpX * this._tipWidth,
-      tipBaseY - perpY * this._tipWidth,
-      tipBaseZ - perpZ * this._tipWidth,
-    ];
+    const tipLeft = [tipBaseX + perpX * this._tipWidth, tipBaseY + perpY * this._tipWidth, tipBaseZ + perpZ * this._tipWidth];
+    const tipRight = [tipBaseX - perpX * this._tipWidth, tipBaseY - perpY * this._tipWidth, tipBaseZ - perpZ * this._tipWidth];
 
-    this._shaft = new ArrowShaft(
-      [x0, y0, z0],
-      [tipBaseX, tipBaseY, tipBaseZ],
-      this._color,
-      this._strokeWidth,
-    );
-    this.add(this._shaft);
+    if (this._shaft && this._tip) {
+      // Update in place — preserves id, opacity, renderer nodes
+      this._shaft.setPoints3D([
+        [x0, y0, z0],
+        [x0 + dx / 3, y0 + dy / 3, z0 + dz / 3],
+        [x0 + 2 * dx / 3, y0 + 2 * dy / 3, z0 + 2 * dz / 3],
+        [tipBaseX, tipBaseY, tipBaseZ],
+      ]);
 
-    this._tip = new ArrowTip([x1, y1, z1], tipLeft, tipRight, this._color);
-    this.add(this._tip);
+      const tipPoints: number[][] = [];
+      const addSeg = (p0: number[], p1: number[], isFirst: boolean) => {
+        const sx = p1[0] - p0[0], sy = p1[1] - p0[1], sz = p1[2] - p0[2];
+        if (isFirst) tipPoints.push([...p0]);
+        tipPoints.push([p0[0] + sx / 3, p0[1] + sy / 3, p0[2] + sz / 3]);
+        tipPoints.push([p0[0] + 2 * sx / 3, p0[1] + 2 * sy / 3, p0[2] + 2 * sz / 3]);
+        tipPoints.push([...p1]);
+      };
+      addSeg(tipLeft, [x1, y1, z1], true);
+      addSeg([x1, y1, z1], tipRight, false);
+      addSeg(tipRight, tipLeft, false);
+      this._tip.setPoints3D(tipPoints);
+
+      this._shaft.markDirty();
+      this._tip.markDirty();
+    } else {
+      // First creation
+      this._shaft = new ArrowShaft([x0, y0, z0], [tipBaseX, tipBaseY, tipBaseZ], this._color, this._strokeWidth);
+      this._tip = new ArrowTip([x1, y1, z1], tipLeft, tipRight, this._color);
+      this.add(this._shaft);
+      this.add(this._tip);
+    }
   }
 
   /**

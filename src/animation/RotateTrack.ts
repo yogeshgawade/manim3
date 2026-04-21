@@ -38,7 +38,15 @@ export class RotateTrack extends BaseAnimationTrack {
   }
 }
 
+export interface RotateToOptions {
+  /** Duration of the animation in seconds. Default: 1 */
+  duration?: number;
+  /** Rate function controlling animation pacing */
+  rateFunc?: RateFunction;
+}
+
 // Factory function
-export function rotateTo(mob: Mobject, target: Vec3, duration = 1, rateFunc?: RateFunction): RotateTrack {
+export function rotateTo(mob: Mobject, target: Vec3, options: RotateToOptions = {}): RotateTrack {
+  const { duration = 1, rateFunc } = options;
   return new RotateTrack(mob, mob.rotation, target, duration, rateFunc);
 }

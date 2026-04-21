@@ -20,6 +20,7 @@ export interface AnimationTrack {
   interpolate(alpha: number): void;
 
   dispose(): void;
+  reset?(): void; 
 }
 
 export abstract class BaseAnimationTrack implements AnimationTrack {

@@ -6,25 +6,6 @@ import { CreateTrack } from './CreateTrack';
 import { FadeTrack } from './FadeTrack';
 
 /**
- * Extract all leaf Mobjects from a hierarchy.
- * Returns all children recursively, including Text and VMobjects.
- */
-function getAllChildren(mob: Mobject): Mobject[] {
-  const result: Mobject[] = [];
-  for (const child of mob.children) {
-    // If this child has no children of its own, it's a leaf
-    if (child.children.length === 0) {
-      result.push(child);
-    }
-    // Otherwise recurse to find leaves
-    else {
-      result.push(...getAllChildren(child));
-    }
-  }
-  return result;
-}
-
-/**
  * CreateGroupTrack — Applies CreateTrack to all leaf VMobjects in a group,
  * with optional staggered timing across children.
  *
@@ -68,15 +49,15 @@ export class CreateGroupTrack implements AnimationTrack {
     private trackRateFunc: RateFunction = (t) => t,
     private lagRatio: number = 0,
     private strokeFillLagRatio: number = 0.5,
-  ) {}
+  ) { }
 
   private ensureChildTracksBuilt(): void {
     if (this._childrenBuilt) return;
     this._childrenBuilt = true;
 
-    const leaves = getAllChildren(this.targetGroup);
+    const family = this.targetGroup.getFamily();
 
-    for (const mob of leaves) {
+    for (const mob of family) {
       const vmob = mob as VMobject;
       // Use CreateTrack for VMobjects with points (stroke animation)
       if (vmob.points3D && vmob.points3D.length > 0) {
@@ -143,17 +124,32 @@ export class CreateGroupTrack implements AnimationTrack {
     this.childTracks = [];
     this._childrenBuilt = false;
   }
+
+  reset(): void {
+    for (const track of this.childTracks) {
+      track.reset?.();
+    }
+  }
+}
+
+export interface CreateOptions {
+  /** Duration of the animation in seconds. Default: 1 */
+  duration?: number;
+  /** Rate function controlling animation pacing */
+  rateFunc?: RateFunction;
+  /** Stagger ratio for animating children sequentially (0 = simultaneous). Default: 0 */
+  lagRatio?: number;
+  /** Lag ratio between stroke drawing and fill fade-in (0-1). Default: 0.5 */
+  strokeFillLagRatio?: number;
 }
 
 /**
- * Factory: create all leaf VMobjects in a group, optionally staggered.
+ * Create a mobject by drawing its stroke then fading in its fill.
+ * Applies to all VMobjects in the group (including descendants).
+ * @param group The mobject or group to create
+ * @param options Create options (duration, rateFunc, lagRatio, strokeFillLagRatio)
  */
-export function createGroup(
-  group: Mobject,
-  duration = 1,
-  rateFunc?: RateFunction,
-  lagRatio = 0,
-  strokeFillLagRatio = 0.5,
-): CreateGroupTrack {
+export function create(group: Mobject, options: CreateOptions = {}): CreateGroupTrack {
+  const { duration = 1, rateFunc, lagRatio = 0, strokeFillLagRatio = 0.5 } = options;
   return new CreateGroupTrack(group, duration, rateFunc, lagRatio, strokeFillLagRatio);
 }

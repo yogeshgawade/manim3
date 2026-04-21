@@ -23,6 +23,7 @@ export class Scheduler {
   private _updaters: UpdaterTrack[] = [];
   private _bookmarks = new Map<string, number>();
   private _lastTrackEndTime = 0;
+  private _prevClock: number = 0;
 
   // Callbacks
   onFrameReady?: () => void;
@@ -64,6 +65,7 @@ export class Scheduler {
     this._totalDuration = 0;
     this._lastTimestamp = null;
     this._lastTrackEndTime = 0;
+    this._prevClock = 0;
   }
 
   // ── Track Management ───────────────────────────────────────────────────────
@@ -164,8 +166,9 @@ export class Scheduler {
   private _applyAllTracksAtTime(t: number): void {
     for (const { track, startTime, endTime } of this._tracks) {
       if (t < startTime) {
-        // Before start: apply initial state
-        //track.interpolate(0);
+        if (this._prevClock >= startTime) {
+          track.reset?.();
+        }
       } else if (t >= endTime) {
         track.interpolate(track.rateFunc(1));
       } else {
@@ -174,6 +177,7 @@ export class Scheduler {
         track.interpolate(alpha);
       }
     }
+    this._prevClock = t;
   }
 }
 
@@ -183,7 +187,7 @@ export class TimelineBuilder {
   constructor(
     private scheduler: Scheduler,
     private position: TimePosition
-  ) {}
+  ) { }
 
   /**
    * Position the next animation at a specific time.

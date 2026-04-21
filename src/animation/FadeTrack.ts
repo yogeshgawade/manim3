@@ -22,9 +22,7 @@ export class FadeTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Capture current state as start, target as end
-    // Note: We do NOT modify mobject here - let it stay at current state
-    // The interpolate() will apply changes when animation runs
+    
   }
 
   interpolate(alpha: number): void {
@@ -32,15 +30,4 @@ export class FadeTrack extends BaseAnimationTrack {
     this.mobject.opacity = opacity;
     this.mobject.markDirty();
   }
-}
-
-// Factory functions
-export function fadeIn(mob: Mobject, duration = 1, rateFunc?: RateFunction): FadeTrack {
-  return new FadeTrack(mob, 0, 1, duration, rateFunc);
-}
-
-export function fadeOut(mob: Mobject, duration = 1, rateFunc?: RateFunction): FadeTrack {
-  const track = new FadeTrack(mob, 1, 0, duration, rateFunc);
-  track.remover = true;
-  return track;
 }

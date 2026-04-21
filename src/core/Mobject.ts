@@ -11,7 +11,7 @@ export class Mobject {
   rotation:      Vec3             = [0, 0, 0];
   scale:         Vec3             = [1, 1, 1];
   color:         Color            = '#ffffff';
-  opacity:       number           = 1;
+  opacity:       number           = 0;
   strokeWidth:   number           = 4;
   fillColor:     Color            = '#ffffff';
   fillOpacity:   number           = 0.8;

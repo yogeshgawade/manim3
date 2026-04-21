@@ -43,8 +43,16 @@ export class MoveTrack extends BaseAnimationTrack {
   }
 }
 
+export interface MoveToOptions {
+  /** Duration of the animation in seconds. Default: 1 */
+  duration?: number;
+  /** Rate function controlling animation pacing */
+  rateFunc?: RateFunction;
+}
+
 // Factory function
 // Passes null for start position so it's captured when animation begins
-export function moveTo(mob: Mobject, target: Vec3, duration = 1, rateFunc?: RateFunction): MoveTrack {
+export function moveTo(mob: Mobject, target: Vec3, options: MoveToOptions = {}): MoveTrack {
+  const { duration = 1, rateFunc } = options;
   return new MoveTrack(mob, null, target, duration, rateFunc);
 }

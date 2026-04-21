@@ -78,7 +78,15 @@ export class ColorTrack extends BaseAnimationTrack {
   }
 }
 
+export interface ColorToOptions {
+  /** Duration of the animation in seconds. Default: 1 */
+  duration?: number;
+  /** Rate function controlling animation pacing */
+  rateFunc?: RateFunction;
+}
+
 // Factory function
-export function colorTo(mob: Mobject, target: string, duration = 1, rateFunc?: RateFunction): ColorTrack {
+export function colorTo(mob: Mobject, target: string, options: ColorToOptions = {}): ColorTrack {
+  const { duration = 1, rateFunc } = options;
   return new ColorTrack(mob, mob.color, target, duration, rateFunc);
 }
