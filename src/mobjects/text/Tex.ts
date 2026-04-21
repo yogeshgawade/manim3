@@ -6,11 +6,14 @@
  * the Python service at http://localhost:8000.
  */
 
+import gsap from 'gsap';
+import { MorphSVGPlugin } from 'gsap/MorphSVGPlugin';
 import { VGroup } from '../../core/VGroup';
 import { VMobject } from '../../core/VMobject';
 import type { Mobject } from '../../core/Mobject';
 import type { Vec3 } from '../../core/types';
-import { svgToVMobjects } from './svgPathParser';
+
+gsap.registerPlugin(MorphSVGPlugin);
 
 const WHITE = '#ffffff';
 const SERVICE_URL = 'http://localhost:8000/compile-latex';
@@ -144,10 +147,7 @@ export class Tex extends VGroup {
    * Render the LaTeX via Python service to VMobject paths.
    */
   protected async _render(): Promise<void> {
-    console.log('[Tex._render] Starting render for:', this._latex);
-
     // Call Python service to compile LaTeX to SVG
-    console.log('[Tex._render] Fetching from:', SERVICE_URL);
     const response = await fetch(SERVICE_URL, {
       method: 'POST',
       headers: {
@@ -160,8 +160,6 @@ export class Tex extends VGroup {
       }),
     });
 
-    console.log('[Tex._render] Response status:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`LaTeX compilation failed: ${response.status} ${errorText}`);
@@ -169,21 +167,12 @@ export class Tex extends VGroup {
 
     const result: LatexResponse = await response.json();
     const svgString = result.svg;
-    console.log('[Tex._render] SVG received, length:', svgString?.length);
-    console.log('[Tex._render] SVG content:\n', svgString);
-
-    // Check for use elements
-    const hasUse = svgString.includes('<use');
-    const hasHref = svgString.includes('xlink:href') || svgString.includes('href=');
-    console.log('[Tex._render] SVG has <use> elements:', hasUse);
-    console.log('[Tex._render] SVG has href references:', hasHref);
 
     if (!svgString || svgString.length === 0) {
       throw new Error('Empty SVG response from LaTeX service');
     }
 
     // Parse SVG string to SVGElement
-    console.log('[Tex._render] Parsing SVG...');
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgString, 'image/svg+xml');
     const svgElement = doc.documentElement as unknown as SVGElement;
@@ -194,44 +183,31 @@ export class Tex extends VGroup {
       console.error('[Tex._render] SVG parse error:', parserError.textContent);
       throw new Error('Failed to parse SVG response from LaTeX service');
     }
-    console.log('[Tex._render] SVG parsed successfully, root tag:', svgElement.tagName);
 
     // Extract viewBox width for scaling
     const viewBox = svgElement.getAttribute?.('viewBox');
-    console.log('[Tex._render] ViewBox:', viewBox);
     if (viewBox) {
       const parts = viewBox.split(/\s+/).map(Number);
       this._svgViewBoxWidth = parts[2] || 1000;
     }
 
-    // Convert SVG to VMobjects
-    console.log('[Tex._render] Converting SVG to VMobjects...');
-    const vmobjectGroup = svgToVMobjects(svgElement, {
-      color: this._color,
-      scale: this._fontSize,
-      flipY: true,
-    });
-    console.log('[Tex._render] VMobject group created, children:', vmobjectGroup.children.length);
+    // Convert SVG to VMobjects using GSAP MorphSVGPlugin
+    const vmobjectGroup = this._svgToVMobjectsGSAP(svgElement);
 
     // Restyle children for proper rendering
-    console.log('[Tex._render] Restyling children...');
     this._restyleChildren(vmobjectGroup);
 
     // Add the VMobject children from the group
-    console.log('[Tex._render] Adding children to Tex object...');
     for (const child of [...vmobjectGroup.children]) {
       vmobjectGroup.remove(child);
       this.add(child);
     }
-    console.log('[Tex._render] Total children added:', this.children.length);
 
     // Scale to target height if specified
-    console.log('[Tex._render] Scaling to target...');
     this._scaleToTarget();
 
     // Set fillOpacity on this VGroup so Create animation detects it has fill
     this.fillOpacity = this._svgFillOpacity;
-    console.log('[Tex._render] Render complete!');
   }
 
   /**
@@ -260,9 +236,6 @@ export class Tex extends VGroup {
   protected _scaleToTarget(): void {
     // Collect all VMobject descendants
     const vmobjects: VMobject[] = [];
-    console.log('[scaleToTarget] first vmob points3D[0]:', (this.children[0] as VMobject)?.points3D?.[0]);
-    console.log('[scaleToTarget] first vmob position:', (this.children[0] as any)?.position);
-    console.log('[scaleToTarget] first vmob scale:', (this.children[0] as any)?.scale);
     const collect = (mob: Mobject) => {
       if (mob instanceof VMobject && !(mob instanceof VGroup)) {
         vmobjects.push(mob);
@@ -292,7 +265,6 @@ export class Tex extends VGroup {
 
     const rawHeight = maxY - minY;
     const rawWidth = maxX - minX;
-    console.log('[Tex._scaleToTarget] Raw bounds before scaling:', { width: rawWidth.toFixed(2), height: rawHeight.toFixed(2) });
     if (rawHeight < 0.0001) return;
 
     let s: number;
@@ -306,7 +278,6 @@ export class Tex extends VGroup {
       const targetWorldHeight = 0.5 * this._fontSize; // 0.5 world units at fontSize=1
       s = targetWorldHeight / rawHeight;
     }
-    console.log('[Tex._scaleToTarget] Scale factor:', s);
 
     // Center of current bounds
     const cx = (minX + maxX) / 2;
@@ -319,21 +290,6 @@ export class Tex extends VGroup {
       vmob.points3D = transformed;
     }
 
-    // Log final bounds
-    let finalMinX = Infinity, finalMaxX = -Infinity, finalMinY = Infinity, finalMaxY = -Infinity;
-    for (const vmob of vmobjects) {
-      for (const p of vmob.points3D) {
-        if (p[0] < finalMinX) finalMinX = p[0];
-        if (p[0] > finalMaxX) finalMaxX = p[0];
-        if (p[1] < finalMinY) finalMinY = p[1];
-        if (p[1] > finalMaxY) finalMaxY = p[1];
-      }
-    }
-    console.log('[Tex._scaleToTarget] Final bounds after scaling:', {
-      width: (finalMaxX - finalMinX).toFixed(4),
-      height: (finalMaxY - finalMinY).toFixed(4),
-      center: [(finalMinX + finalMaxX) / 2, (finalMinY + finalMaxY) / 2]
-    });
   }
 
   /**
@@ -349,5 +305,124 @@ export class Tex extends VGroup {
       fillOpacity: this._svgFillOpacity,
       height: this._targetHeight,
     });
+  }
+
+  /**
+   * Convert SVG element to VMobjects using GSAP MorphSVGPlugin for path parsing.
+   */
+  private _svgToVMobjectsGSAP(svgElement: SVGElement): VGroup {
+    const group = new VGroup();
+    const scale = this._fontSize;
+
+    // Build a <defs> symbol map for <use> resolution
+    const defsMap = new Map<string, SVGElement>();
+    svgElement.querySelectorAll('[id]').forEach((el) => {
+      defsMap.set(el.id, el as SVGElement);
+    });
+
+    const processElement = (el: Element, inheritedTransform: DOMMatrix) => {
+      const tag = el.tagName.toLowerCase();
+
+      // Resolve <use> elements by cloning the referenced symbol/path
+      if (tag === 'use') {
+        const href =
+          el.getAttribute('href') || el.getAttribute('xlink:href') || '';
+        const refId = href.replace('#', '');
+        const ref = defsMap.get(refId);
+        if (ref) {
+          // Apply <use> x/y offset into a new matrix
+          const x = parseFloat(el.getAttribute('x') || '0');
+          const y = parseFloat(el.getAttribute('y') || '0');
+          const useMatrix = inheritedTransform.translate(x, y);
+          processElement(ref, useMatrix);
+        }
+        return;
+      }
+
+      // Compute this element's local transform
+      let localMatrix = inheritedTransform;
+      const transformAttr = el.getAttribute('transform');
+      if (transformAttr) {
+        // Create a temporary SVG element to parse the transform
+        const ns = 'http://www.w3.org/2000/svg';
+        const tempSvg = document.createElementNS(ns, 'svg');
+        const tempEl = document.createElementNS(ns, 'g') as SVGGElement;
+        tempEl.setAttribute('transform', transformAttr);
+        tempSvg.appendChild(tempEl);
+        document.body.appendChild(tempSvg);
+        localMatrix = inheritedTransform.multiply(
+          tempEl.getCTM() ?? new DOMMatrix()
+        );
+        document.body.removeChild(tempSvg);
+      }
+
+      if (tag === 'path') {
+        const d = el.getAttribute('d');
+        if (!d) return;
+
+        // Use GSAP to parse the path string into rawPath
+        const rawPath = MorphSVGPlugin.stringToRawPath(d);
+        if (!rawPath || rawPath.length === 0) return;
+
+        const vmob = new VMobject();
+        const allPoints: number[][] = [];
+        const subpathLengths: number[] = [];
+
+        // Apply inherited transform + scale + flipY to each point
+        const transformPt = (x: number, y: number): [number, number] => {
+          const pt = localMatrix.transformPoint({ x, y });
+          return [pt.x * scale, -pt.y * scale]; // flipY: negate Y
+        };
+
+        for (const segment of rawPath) {
+          const coords = segment as unknown as number[];
+          const startIdx = allPoints.length;
+
+          // rawPath layout: [ax, ay, cp1x, cp1y, cp2x, cp2y, ax2, ay2, ...]
+          // First point is anchor, then groups of 6: cp1, cp2, anchor
+
+          // First anchor (M point)
+          const [ax0, ay0] = transformPt(coords[0], coords[1]);
+          allPoints.push([ax0, ay0, 0]);
+
+          // Remaining: cp1, cp2, anchor (groups of 6 floats)
+          for (let i = 2; i < coords.length; i += 6) {
+            if (i + 5 >= coords.length) break;
+            const [cp1x, cp1y] = transformPt(coords[i], coords[i + 1]);
+            const [cp2x, cp2y] = transformPt(coords[i + 2], coords[i + 3]);
+            const [anx, any_] = transformPt(coords[i + 4], coords[i + 5]);
+            allPoints.push([cp1x, cp1y, 0]); // handle 1
+            allPoints.push([cp2x, cp2y, 0]); // handle 2
+            allPoints.push([anx, any_, 0]); // anchor
+          }
+
+          subpathLengths.push(allPoints.length - startIdx);
+        }
+
+        if (allPoints.length < 4) return;
+
+        vmob.points3D = allPoints;
+
+        // Register subpaths so renderer knows where each contour starts/ends
+        // (needed for glyphs with holes like "O")
+        if (subpathLengths.length > 1) {
+          vmob.setSubpaths(subpathLengths, subpathLengths.map(() => true));
+        }
+
+        group.add(vmob);
+      } else if (tag === 'g' || tag === 'symbol') {
+        // Recurse into groups
+        for (const child of Array.from(el.children)) {
+          processElement(child, localMatrix);
+        }
+      }
+    };
+
+    // Start from identity matrix, recurse the whole SVG
+    for (const child of Array.from(svgElement.children)) {
+      processElement(child, new DOMMatrix());
+    }
+
+    return group;
   }
 }
