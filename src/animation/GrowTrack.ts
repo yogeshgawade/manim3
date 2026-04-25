@@ -102,6 +102,11 @@ export class GrowFromPointTrack extends BaseAnimationTrack {
     if (this.pointColor) {
       this.originalColor = this.mobject.color;
     }
+
+    // Set opacity to 0 for all family members (mobject may be a Group)
+    for (const mob of this.mobject.getFamily()) {
+      mob.opacity = 0;
+    }
   }
 
   interpolate(alpha: number): void {
@@ -123,6 +128,11 @@ export class GrowFromPointTrack extends BaseAnimationTrack {
     // Interpolate color if pointColor was specified
     if (this.pointColor && this.targetColor && this.originalColor) {
       this.mobject.color = alpha > 0.5 ? this.targetColor : this.originalColor;
+    }
+
+    // Set opacity to 1 for all family members (mobject may be a Group)
+    for (const mob of this.mobject.getFamily()) {
+      mob.opacity = 1;
     }
 
     this.mobject.markDirty();

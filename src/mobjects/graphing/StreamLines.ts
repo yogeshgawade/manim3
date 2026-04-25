@@ -86,7 +86,7 @@ function splitBezierAt(
 }
 
 /** Extract partial Bezier points between lower and upper (0-1) */
-function getPartialBezierPoints(allPoints: number[][], lower: number, upper: number): number[][] {
+export function getPartialBezierPoints(allPoints: number[][], lower: number, upper: number): number[][] {
   if (allPoints.length < 4) return [];
   const nCurves = (allPoints.length - 1) / 3;
   if (nCurves < 1 || lower >= upper) return [];
@@ -201,7 +201,7 @@ export class StreamLines extends VectorField {
       numLines = 15,
       startPoints,
       maxLineLength = 10,
-      stepSize = 0.05,
+      stepSize = 0.1,
       minSteps = 3,
       variableWidth = false,
       showArrows = false,
@@ -249,6 +249,13 @@ export class StreamLines extends VectorField {
           points.push([x + nf * (rng() - 0.5), y + nf * (rng() - 0.5)]);
         }
       }
+    }
+
+    // Subsample to numLines using seeded shuffle
+    if (this._numLines < points.length) {
+      const shuffleRng = seededRandom(1);
+      points.sort(() => shuffleRng() - 0.5);
+      return points.slice(0, this._numLines);
     }
 
     return points;
@@ -385,7 +392,7 @@ export class StreamLines extends VectorField {
         linePoints[0].vy,
       );
 
-      streamline.fillColor = color;
+      streamline.color = color;
       streamline.fillOpacity = 0;
       streamline.strokeWidth = this._variableWidth
         ? this._strokeWidth * (0.5 + avgMagnitude / 2)

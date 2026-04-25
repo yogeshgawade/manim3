@@ -48,6 +48,7 @@ export class TexturedSurfaceRenderNode implements RenderNode {
       vRange: [surface.vRange[0], surface.vRange[1]] as [number, number],
       uResolution: surface.uResolution,
       vResolution: surface.vResolution,
+      uvFunctionVersion: surface.uvFunctionVersion,
     };
 
     // Set initial transform
@@ -172,6 +173,7 @@ export class TexturedSurfaceRenderNode implements RenderNode {
       vRange: [surface.vRange[0], surface.vRange[1]] as [number, number],
       uResolution: surface.uResolution,
       vResolution: surface.vResolution,
+      uvFunctionVersion: surface.uvFunctionVersion,
     };
 
     if (!current) {
@@ -185,7 +187,8 @@ export class TexturedSurfaceRenderNode implements RenderNode {
       current.uRange[0] !== next.uRange[0] ||
       current.uRange[1] !== next.uRange[1] ||
       current.vRange[0] !== next.vRange[0] ||
-      current.vRange[1] !== next.vRange[1];
+      current.vRange[1] !== next.vRange[1] ||
+      current.uvFunctionVersion !== next.uvFunctionVersion;
 
     if (needsRebuild) {
       this.mesh.userData.surfaceParams = next;

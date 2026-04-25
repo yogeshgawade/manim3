@@ -66,8 +66,8 @@ export class Arrow3D extends Mobject {
     this.radialSegments = options.radialSegments ?? 16;
     this.fillColor = options.color ?? '#ffffff';
     this.color = this.fillColor;
-    this.fillOpacity = options.opacity ?? 1;
-    this.opacity = options.opacity ?? 1;
+    this.fillOpacity = options.opacity ?? 0;
+    this.opacity = options.opacity ?? 0;
 
     this.markDirty();
   }

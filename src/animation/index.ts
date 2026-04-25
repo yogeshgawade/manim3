@@ -28,7 +28,7 @@ export * from './FlashTrack';
 export * from './CircumscribeTrack';
 export * from './FocusOnTrack';
 export * from './ShowPassingFlashTrack';
-export * from './ShowPassingFlashWithThinningStrokeWidthTrack'; // Exports as TaperedFlashTrack
+export * from './TaperedFlashTrack'; 
 
 // Growing animations (ported from Python Manim)
 export * from './GrowTrack';
@@ -43,3 +43,6 @@ export * from './SpiralInTrack';
 
 // Transformations
 export * from './CrossFadeTrack';
+
+// StreamLines animation
+export * from './StreamLinesTrack';

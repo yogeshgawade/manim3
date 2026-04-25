@@ -30,6 +30,7 @@ export interface IndicateOptions {
 export class IndicateTrack extends BaseAnimationTrack {
   private startScale: Vec3;
   private startColor: string;
+  private startFillColor: string;
   private scaleFactor: number;
   private indicateColor: string;
 
@@ -44,12 +45,14 @@ export class IndicateTrack extends BaseAnimationTrack {
     this.indicateColor = options.color ?? YELLOW;
     this.startScale = [...mobject.scale] as Vec3;
     this.startColor = mobject.color;
+    this.startFillColor = mobject.fillColor;
   }
 
   prepare(): void {
     // Capture initial state
     this.startScale = [...this.mobject.scale] as Vec3;
     this.startColor = this.mobject.color;
+    this.startFillColor = this.mobject.fillColor;
   }
 
   interpolate(alpha: number): void {
@@ -62,8 +65,9 @@ export class IndicateTrack extends BaseAnimationTrack {
       this.startScale[2] * scaleMultiplier,
     ];
 
-    // Color interpolation
+    // Color interpolation (stroke and fill)
     this.mobject.color = lerpColor(this.startColor, this.indicateColor, alpha);
+    this.mobject.fillColor = lerpColor(this.startFillColor, this.indicateColor, alpha);
     this.mobject.markDirty();
   }
 }

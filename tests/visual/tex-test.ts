@@ -26,12 +26,12 @@ function setInvisible(mob: any) {
 
 // Test both Tex and MathTex
 // Simple Bj test
-const tex = new Tex({
-  latex: "Bj",
-  fontSize: 4.5,
-  position: [-3, 0, 0],
-  fillOpacity: 0.4
-});
+//const tex = new Tex({
+//  latex: "Bj",
+//  fontSize: 4.5,
+//  position: [-3, 0, 0],
+//  fillOpacity: 0.4
+//});
 
 // Complex chemfig expression (disabled for now)
 // const tex = new Tex({
@@ -45,20 +45,18 @@ const tex = new Tex({
 // });
 
 const mathTex = new MathTex({
-  latex: "Bj",
+  latex: "ABOij8",
   fontSize: 5,
   position: [3, 0, 0],
   fillOpacity: 0.4
 });
 
-await tex.waitForRender();
+//await tex.waitForRender();
 await mathTex.waitForRender();
 
-// Set invisible before Create animations
-setInvisible(tex);
-setInvisible(mathTex);
 
-scene.add(tex);
+
+//scene.add(tex);
 scene.add(mathTex);
 
 
@@ -66,9 +64,9 @@ async function runAnimation() {
   scene.scheduler.reset();
 
   // Sequence: Create In -> Hold -> Fade Out for both
-  scene.at(1).play(create(tex, { duration: 1, rateFunc: smooth }));
+  //scene.at(1).play(create(tex, { duration: 1, rateFunc: smooth }));
   scene.at('+=0').play(create(mathTex, { duration: 1, rateFunc: smooth }));
-  scene.at('+=2').play(fadeOut(tex, { duration: 1, rateFunc: smooth }));
+  //scene.at('+=2').play(fadeOut(tex, { duration: 1, rateFunc: smooth }));
   scene.at('+=0').play(fadeOut(mathTex, { duration: 1, rateFunc: smooth }));
 }
 

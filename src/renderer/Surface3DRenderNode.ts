@@ -151,6 +151,7 @@ export class Surface3DRenderNode implements RenderNode {
       uResolution: mobject.uResolution,
       vResolution: mobject.vResolution,
       checkerboard: mobject.checkerboardColors ? [mobject.checkerboardColors[0], mobject.checkerboardColors[1]] as [string, string] : undefined,
+      uvFunctionVersion: mobject.uvFunctionVersion,
     };
 
     if (!current) {
@@ -165,7 +166,8 @@ export class Surface3DRenderNode implements RenderNode {
       current.uRange[0] !== next.uRange[0] ||
       current.uRange[1] !== next.uRange[1] ||
       current.vRange[0] !== next.vRange[0] ||
-      current.vRange[1] !== next.vRange[1];
+      current.vRange[1] !== next.vRange[1] ||
+      current.uvFunctionVersion !== next.uvFunctionVersion;
 
     if (needsRebuild) {
       this.mesh.userData.surfaceParams = next;

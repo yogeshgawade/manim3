@@ -53,6 +53,11 @@ export class GrowArrowTrack extends BaseAnimationTrack {
     if (this.pointColor) {
       this.originalColor = arrow.color;
     }
+
+    // Set opacity to 0 for all family members (Arrow is a Group)
+    for (const mob of arrow.getFamily()) {
+      mob.opacity = 0;
+    }
   }
 
   interpolate(alpha: number): void {
@@ -88,8 +93,18 @@ export class GrowArrowTrack extends BaseAnimationTrack {
       arrow.color = alpha > 0.5 ? this.targetColor : this.originalColor;
     }
 
-    arrow.markDirty();
+    // Set opacity to 1 for all family members (Arrow is a Group)
+    for (const mob of arrow.getFamily()) {
+      mob.opacity = 1;
+      mob.markDirty();
+    }
   }
+}
+
+// Options interface for growArrow
+export interface GrowArrowOptions {
+  duration?: number;
+  rateFunc?: RateFunction;
 }
 
 // Factory functions
@@ -99,9 +114,9 @@ export class GrowArrowTrack extends BaseAnimationTrack {
  */
 export function growArrow(
   arrow: Arrow,
-  duration = 1,
-  rateFunc?: RateFunction,
+  options: GrowArrowOptions = {},
 ): GrowArrowTrack {
+  const { duration = 1, rateFunc } = options;
   return new GrowArrowTrack(arrow, null, duration, rateFunc);
 }
 

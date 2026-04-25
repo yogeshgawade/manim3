@@ -48,8 +48,9 @@ interface SubMobjectState {
   finalPosition: Vec3;
   initialPosition: Vec3;
   finalRotation: Vec3;
-  initialFillOpacity: number;
-  initialStrokeOpacity: number;
+  finalFillOpacity: number;
+  finalStrokeOpacity: number;
+  finalOpacity: number;
 }
 
 /**
@@ -113,8 +114,9 @@ export class SpiralInTrack extends BaseAnimationTrack {
         finalPosition,
         initialPosition,
         finalRotation: [...mob.rotation] as Vec3,
-        initialFillOpacity: (mob as any).fillOpacity ?? 0,
-        initialStrokeOpacity: (mob as any).strokeOpacity ?? 1,
+        finalFillOpacity: (mob as any).fillOpacity ?? 0,
+        finalStrokeOpacity: (mob as any).strokeOpacity ?? 1,
+        finalOpacity: 1,
       });
     }
   }
@@ -135,6 +137,7 @@ export class SpiralInTrack extends BaseAnimationTrack {
         ];
         (mob as any).fillOpacity = 0;
         (mob as any).strokeOpacity = 0;
+        mob.opacity = 0;
         mob.markDirty();
       }
     }
@@ -171,8 +174,9 @@ export class SpiralInTrack extends BaseAnimationTrack {
 
       // 4. Fade in during fadeInFraction of animation
       const fadeAlpha = Math.min(1, adjustedAlpha / this.fadeInFraction);
-      (mob as any).fillOpacity = lerp(0, state.initialFillOpacity, fadeAlpha);
-      (mob as any).strokeOpacity = lerp(0, state.initialStrokeOpacity, fadeAlpha);
+      (mob as any).fillOpacity = lerp(0, state.finalFillOpacity, fadeAlpha);
+      (mob as any).strokeOpacity = lerp(0, state.finalStrokeOpacity, fadeAlpha);
+      mob.opacity = lerp(0, state.finalOpacity, fadeAlpha);
 
       mob.markDirty();
     }

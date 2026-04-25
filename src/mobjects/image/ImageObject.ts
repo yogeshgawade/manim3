@@ -80,7 +80,7 @@ export class ImageObject extends Mobject {
     this.height = options.height;
     this.scaleToFit = options.scaleToFit ?? true;
     this.position = [...(options.center ?? [0, 0, 0])] as Vec3;
-    this.opacity = options.opacity ?? 1;
+    this.opacity = options.opacity ?? 0;
     this.filters = {
       grayscale: options.filters?.grayscale ?? false,
       invert: options.filters?.invert ?? false,

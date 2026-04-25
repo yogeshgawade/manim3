@@ -233,9 +233,9 @@ export class MathTex extends VGroup {
     const restyle = (mob: Mobject) => {
       if (mob instanceof VMobject) {
         mob.fillOpacity = this._svgFillOpacity;
-        mob.fillColor = this._color;  // Apply same color to fill
         mob.strokeWidth = this._svgStrokeWidth;
         mob.color = this._color;
+        mob.fillColor = undefined as any; // Renderer will use color as fallback
       }
       if ('children' in mob) {
         for (const child of (mob as VGroup).children) {

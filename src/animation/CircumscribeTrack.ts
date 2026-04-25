@@ -35,19 +35,16 @@ export interface CircumscribeOptions {
   fadeOut?: boolean;
 }
 
-/**
- * CircumscribeTrack — Draw shape around mobject.
- */
 export class CircumscribeTrack extends BaseAnimationTrack {
   private shapeType: CircumscribeShape;
   private shapeColor: string;
   private buff: number;
   private strokeWidth: number;
   private timeWidth: number;
-  private fadeOut: boolean;
+  private shouldFadeOut: boolean;
   private shapeMobject: Rectangle | Circle | null = null;
-  private prepared = false;
   private bounds: { width: number; height: number } = { width: 1, height: 1 };
+  private center: Vec3 = [0, 0, 0];
 
   constructor(
     mobject: Mobject,
@@ -61,47 +58,51 @@ export class CircumscribeTrack extends BaseAnimationTrack {
     this.buff = options.buff ?? 0.2;
     this.strokeWidth = options.strokeWidth ?? DEFAULT_STROKE_WIDTH;
     this.timeWidth = options.timeWidth ?? 0.7;
-    this.fadeOut = options.fadeOut ?? true;
+    this.shouldFadeOut = options.fadeOut ?? true;
   }
 
   prepare(): void {
-    if (this.prepared) return;
-    this.prepared = true;
+    // Always clean up previous shape before creating a new one
+    this._destroyShape();
 
-    // Estimate bounds based on mobject and calculate actual geometric center
-    let center: Vec3 = [...this.mobject.getCenter()] as Vec3;
+    // Compute bounds and center from mobject geometry
+    this.center = [...this.mobject.getCenter()] as Vec3;
 
-    if (this.mobject instanceof VMobject) {
-      const vmob = this.mobject as VMobject;
-      const points = vmob.points3D;
-      if (points.length > 0) {
-        const xs = points.map(p => p[0]);
-        const ys = points.map(p => p[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        this.bounds = {
-          width: maxX - minX,
-          height: maxY - minY,
-        };
-        // Calculate actual geometric center from bounds
-        center = [(minX + maxX) / 2, (minY + maxY) / 2, 0];
+    // Recursively collect points from all children (works for VMobject, VGroup, MathTex, etc.)
+    const allPoints: [number, number, number][] = [];
+    const collectPoints = (mob: any) => {
+      if (mob.points3D && !(mob.children?.length)) {
+        allPoints.push(...mob.points3D);
       }
+      if (mob.children) {
+        for (const child of mob.children) collectPoints(child);
+      }
+    };
+    collectPoints(this.mobject);
+
+    if (allPoints.length > 0) {
+      const xs = allPoints.map(p => p[0]);
+      const ys = allPoints.map(p => p[1]);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      this.bounds = { width: maxX - minX, height: maxY - minY };
+      this.center = [(minX + maxX) / 2, (minY + maxY) / 2, 0];
     }
 
-    // Create the circumscribe shape
+    // Create shape
     const width = this.bounds.width + this.buff * 2;
     const height = this.bounds.height + this.buff * 2;
 
     if (this.shapeType === 'circle') {
-      const radius = Math.max(width, height) / 2;
+      const radius = Math.sqrt((width / 2) ** 2 + (height / 2) ** 2);
       this.shapeMobject = new Circle({
         radius,
         color: this.shapeColor,
         strokeWidth: this.strokeWidth,
         fillOpacity: 0,
-        center,
+        center: this.center,
       });
     } else {
       this.shapeMobject = new Rectangle({
@@ -110,7 +111,7 @@ export class CircumscribeTrack extends BaseAnimationTrack {
         color: this.shapeColor,
         strokeWidth: this.strokeWidth,
         fillOpacity: 0,
-        center,
+        center: this.center,
       });
     }
 
@@ -119,21 +120,28 @@ export class CircumscribeTrack extends BaseAnimationTrack {
   }
 
   interpolate(alpha: number): void {
+    if (!this.shapeMobject && alpha < 1) {
+      this.prepare();
+    }
     if (!this.shapeMobject) return;
+
+    if (alpha >= 1 && this.shouldFadeOut) {  // ← only destroy if fadeOut is true
+      this._destroyShape();
+      return;
+    }
 
     const drawEnd = this.timeWidth;
     const drawAlpha = drawEnd > 0 ? Math.min(1, alpha / drawEnd) : 1;
 
-    if (this.fadeOut && alpha > drawEnd) {
+    if (this.shouldFadeOut && alpha > drawEnd) {
       // Fade out phase
       const fadeAlpha = (alpha - drawEnd) / (1 - drawEnd);
       this.shapeMobject.opacity = 1 - fadeAlpha;
     } else {
-      // Draw phase
-      this.shapeMobject.opacity = 1;
+      // Draw phase — fully visible once drawing starts
+      this.shapeMobject.opacity = drawAlpha > 0 ? 1 : 0;
     }
 
-    // Animate visibleFraction for progressive drawing effect
     if (this.shapeMobject instanceof VMobject) {
       this.shapeMobject.visibleFraction = drawAlpha;
     }
@@ -142,18 +150,19 @@ export class CircumscribeTrack extends BaseAnimationTrack {
   }
 
   dispose(): void {
+    this._destroyShape();
+  }
+
+  private _destroyShape(): void {
     if (this.shapeMobject) {
+      this.shapeMobject.opacity = 0;
+      this.shapeMobject.markDirty();
       this.mobject.remove(this.shapeMobject);
       this.shapeMobject = null;
     }
   }
 }
 
-/**
- * Create a Circumscribe animation track.
- * @param mob The mobject to circumscribe
- * @param options Circumscribe options (shape, color, buff, strokeWidth)
- */
 export function circumscribe(mob: Mobject, options?: CircumscribeOptions): CircumscribeTrack {
   return new CircumscribeTrack(mob, options);
 }

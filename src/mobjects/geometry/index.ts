@@ -94,16 +94,15 @@ export {
 
 // Boolean operations
 export {
-  UnionResult,
-  IntersectionResult,
-  DifferenceResult,
-  ExclusionResult,
+  Union,
+  Intersection,
+  Difference,
+  Exclusion,
   union,
   intersection,
   difference,
   exclusion,
   type BooleanOperationOptions,
-  type Polygon2D,
 } from './BooleanOperations';
 
 // Shape matchers

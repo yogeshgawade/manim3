@@ -52,8 +52,8 @@ export class Line3D extends Mobject {
     this.lineWidth = options.lineWidth ?? 2;
     this.strokeColor = options.color ?? '#ffffff';
     this.color = this.strokeColor;
-    this.strokeOpacity = options.opacity ?? 1;
-    this.opacity = options.opacity ?? 1;
+    this.strokeOpacity = options.opacity ?? 0;
+    this.opacity = options.opacity ?? 0;
 
     this.markDirty();
   }

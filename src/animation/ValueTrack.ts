@@ -66,6 +66,7 @@ export class ValueTrack extends BaseAnimationTrack {
 
   prepare(): void {
     // Start value captured on first interpolate()
+     this.started = false;
   }
 
   interpolate(alpha: number): void {

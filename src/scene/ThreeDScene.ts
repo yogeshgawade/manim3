@@ -91,35 +91,11 @@ export class ThreeDScene extends Scene {
   // ── Camera Control ────────────────────────────────────────────────────
 
   /**
-   * Override add() to auto-register billboard updaters.
+   * Override add() - billboard rotation is handled in _renderFrame()
+   * to ensure it works during both animation and manual camera control.
    */
   override add(...mobjects: Mobject[]): this {
     super.add(...mobjects);
-    
-    // Auto-add updater for BillboardGroup instances
-    for (const mob of mobjects) {
-      if (mob instanceof BillboardGroup) {
-        const updater = new UpdaterTrack(mob, () => {
-          const camPos = this.getCameraPosition();
-          mob.setCameraPosition(camPos);
-          mob.updateBillboardRotation();
-          mob.markDirty();
-        });
-        this.scheduler['addUpdater']?.(updater);
-      }
-      // Also check family members (in case billboard is nested)
-      for (const familyMob of mob.getFamily()) {
-        if (familyMob instanceof BillboardGroup) {
-          const updater = new UpdaterTrack(familyMob, () => {
-            const camPos = this.getCameraPosition();
-            familyMob.setCameraPosition(camPos);
-            familyMob.updateBillboardRotation();
-            familyMob.markDirty();
-          });
-          this.scheduler['addUpdater']?.(updater);
-        }
-      }
-    }
     return this;
   }
 
@@ -339,6 +315,24 @@ export class ThreeDScene extends Scene {
     // First: reconcile all mobjects (creates render nodes)
     const allMobjects = this.logicalScene.getAllMobjects();
     this.renderer.reconcile(allMobjects);
+
+    // Update all billboards to face camera (needed when manually orbiting while paused)
+    const camPos = this.getCameraPosition();
+    for (const mob of allMobjects) {
+      if (mob instanceof BillboardGroup) {
+        mob.setCameraPosition(camPos);
+        mob.updateBillboardRotation();
+        mob.markDirty();
+      }
+      // Also check family members (billboards might be nested)
+      for (const familyMob of mob.getFamily()) {
+        if (familyMob instanceof BillboardGroup) {
+          familyMob.setCameraPosition(camPos);
+          familyMob.updateBillboardRotation();
+          familyMob.markDirty();
+        }
+      }
+    }
 
     // Get the three.js renderer and scenes
     const threeRenderer = (this.renderer as any)['threeRenderer'] as THREE.WebGLRenderer;

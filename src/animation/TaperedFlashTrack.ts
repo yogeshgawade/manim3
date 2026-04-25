@@ -40,7 +40,6 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
   private pathPoints: number[][] = [];
   private flashSegments: Line[] = [];
   private isVMobject: boolean;
-  private prepared = false;
 
   constructor(
     mobject: Mobject,
@@ -57,8 +56,8 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    if (this.prepared) return;
-    this.prepared = true;
+    // Always clean up previous segments before creating new ones
+    this._destroySegments();
 
     // Get path points from VMobject or create a simple path
     if (this.isVMobject) {
@@ -95,6 +94,16 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
   }
 
   interpolate(alpha: number): void {
+    if (!this.flashSegments.length && alpha < 1) {
+      this.prepare();
+    }
+    if (!this.flashSegments.length) return;
+
+    if (alpha >= 1) {
+      this._destroySegments();
+      return;
+    }
+
     if (this.pathPoints.length < 2) return;
 
     const numPoints = this.pathPoints.length;
@@ -191,7 +200,13 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
   }
 
   dispose(): void {
+    this._destroySegments();
+  }
+
+  private _destroySegments(): void {
     for (const segment of this.flashSegments) {
+      segment.opacity = 0;
+      segment.markDirty();
       this.mobject.remove(segment);
     }
     this.flashSegments = [];

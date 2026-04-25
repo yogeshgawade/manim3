@@ -44,7 +44,8 @@ export function buildEarcutFillGeometry(
     if (points.length < 3) continue;
     const sampled = sampleBezierPath(points, 16);
     if (sampled.length >= 3) {
-      sampledSubpaths.push({ points: sampled, area: polygonSignedArea(sampled) });
+      const area = polygonSignedArea(sampled);
+      sampledSubpaths.push({ points: sampled, area });
     }
   }
 
@@ -57,29 +58,50 @@ export function buildEarcutFillGeometry(
   const separateShapes: number[][] = [];
   let vertexCount = 0;
 
+  // Helper: axis-aligned bounding box
+  function getAABB(pts: number[][]) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+      if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
+    }
+    return { minX, minY, maxX, maxY };
+  }
+  function aabbContains(outer: ReturnType<typeof getAABB>, inner: ReturnType<typeof getAABB>) {
+    return inner.minX >= outer.minX && inner.maxX <= outer.maxX &&
+           inner.minY >= outer.minY && inner.maxY <= outer.maxY;
+  }
+
+  const outerBBox = getAABB(sampledSubpaths[0].points);
+
   for (let i = 0; i < sampledSubpaths.length; i++) {
     const { points, area } = sampledSubpaths[i];
-    
+
     if (i === 0) {
-      // First subpath is always the outer contour
       for (const p of points) {
         mainContour.push(p[0], p[1]);
       }
       vertexCount = points.length;
-    } else if ((outerArea > 0) !== (area > 0)) {
-      // Opposite winding = hole of main contour
-      mainHoles.push(vertexCount);
-      for (const p of points) {
-        mainContour.push(p[0], p[1]);
-      }
-      vertexCount += points.length;
     } else {
-      // Same winding = separate filled shape
-      const flat: number[] = [];
-      for (const p of points) {
-        flat.push(p[0], p[1]);
+      const bbox = getAABB(points);
+      const isInsideOuter = aabbContains(outerBBox, bbox);
+      const hasOppositeWinding = (outerArea > 0) !== (area > 0);
+
+      if (isInsideOuter && hasOppositeWinding) {
+        // Genuinely inside the outer contour with opposite winding → hole
+        mainHoles.push(vertexCount);
+        for (const p of points) {
+          mainContour.push(p[0], p[1]);
+        }
+        vertexCount += points.length;
+      } else {
+        // Disjoint shape OR same winding → triangulate separately
+        const flat: number[] = [];
+        for (const p of points) {
+          flat.push(p[0], p[1]);
+        }
+        separateShapes.push(flat);
       }
-      separateShapes.push(flat);
     }
   }
 

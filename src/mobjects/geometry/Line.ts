@@ -1,5 +1,5 @@
 import { VMobject } from '../../core/VMobject';
-import type { Vec3 } from '../../core/types';
+import type { MobjectState, Vec3 } from '../../core/types';
 import { WHITE, DEFAULT_STROKE_WIDTH } from '../../constants/colors';
 
 /**
@@ -37,6 +37,7 @@ export interface LineOptions {
 export class Line extends VMobject {
   private _start: Vec3;
   private _end: Vec3;
+  private _needsRebuild = false;
 
   constructor(options: LineOptions = {}) {
     super();
@@ -89,7 +90,8 @@ export class Line extends VMobject {
    */
   setStart(point: Vec3): this {
     this._start = [...point];
-    this._generatePoints();
+    this._needsRebuild = true;
+    this.markDirty();
     return this;
   }
 
@@ -109,7 +111,30 @@ export class Line extends VMobject {
    */
   setEnd(point: Vec3): this {
     this._end = [...point];
-    this._generatePoints();
+    this._needsRebuild = true;
+    this.markDirty();
+    return this;
+  }
+
+  /**
+   * Mark dirty - regenerate points if needed before propagating
+   */
+  override markDirty(): void {
+    if (this._needsRebuild) {
+      this._needsRebuild = false;
+      this._generatePoints();
+    }
+    super.markDirty();
+  }
+
+  override restoreState(state: MobjectState): this {
+    super.restoreState(state);
+    if (state.points3D && state.points3D.length >= 4) {
+      this._start = [state.points3D[0][0], state.points3D[0][1], state.points3D[0][2]];
+      const last = state.points3D[state.points3D.length - 1];
+      this._end = [last[0], last[1], last[2]];
+    }
+    this._needsRebuild = false;
     return this;
   }
 

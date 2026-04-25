@@ -12,6 +12,7 @@ class CurvedArrowTip extends VMobject {
   constructor(tipPoint: number[], tipLeft: number[], tipRight: number[], color: string) {
     super();
     this.color = color;
+    this.fillColor = color;
     this.fillOpacity = 1;
     this.strokeWidth = 0;
 

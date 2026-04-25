@@ -127,6 +127,7 @@ export class CreateGroupTrack implements AnimationTrack {
 
   reset(): void {
     for (const track of this.childTracks) {
+      console.log("create reset")
       track.reset?.();
     }
   }

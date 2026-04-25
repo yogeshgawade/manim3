@@ -385,4 +385,28 @@ export class Text extends Mobject {
   override getCenter(): Vec3 {
     return [...this.position] as Vec3;
   }
+
+  /**
+   * Override captureState to include _text for proper restore on replay
+   */
+  override captureState() {
+    const base = super.captureState();
+    return {
+      ...base,
+      _text: this._text,
+    };
+  }
+
+  /**
+   * Override restoreState to include _text and re-render canvas
+   */
+  override restoreState(state: any) {
+    super.restoreState(state);
+    if (state._text !== undefined && state._text !== this._text) {
+      this._text = state._text;
+      this._canvasDirty = true;
+      this._renderToCanvas();
+    }
+    return this;
+  }
 }

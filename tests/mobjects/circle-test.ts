@@ -37,7 +37,7 @@ async function runAnimation() {
   scene.at('+=0.5').play(create(circle, { duration: 1, rateFunc: smooth }));
   scene.at('+=0.5').play(moveTo(circle, [0, 0, 0], { duration: 1.5, rateFunc: smooth }));
   scene.at('+=0.5').play(rotateTo(circle, [0, 0, Math.PI * 2], { duration: 1.5, rateFunc: smooth }));
-  scene.at('+=0.5').play(colorTo(circle, GREEN, { duration: 2, rateFunc: smooth }));
+  //scene.at('+=0.5').play(colorTo(circle, GREEN, { duration: 2, rateFunc: smooth }));
   scene.at('+=0.5').play(scaleTo(circle, 1.5, { duration: 1, rateFunc: smooth }));
   scene.at('+=0.5').play(fadeOut(circle, { duration: 1, rateFunc: smooth }));
 

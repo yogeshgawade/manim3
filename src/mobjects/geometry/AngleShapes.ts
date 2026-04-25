@@ -141,6 +141,64 @@ export class Angle extends VMobject {
     this._generatePoints();
   }
 
+  /**
+   * Update the angle from two lines (recalculates vertex and arc)
+   */
+  updateFromLines(line1: Line, line2: Line): this {
+    const line1Start = line1.getStart();
+    const line1End = line1.getEnd();
+    const line2Start = line2.getStart();
+    const line2End = line2.getEnd();
+
+    // Find the best vertex (closest intersection point)
+    const d1 = this._distance(line1Start, line2Start);
+    const d2 = this._distance(line1Start, line2End);
+    const d3 = this._distance(line1End, line2Start);
+    const d4 = this._distance(line1End, line2End);
+
+    const minDist = Math.min(d1, d2, d3, d4);
+
+    let point1: Vec3;
+    let vertex: Vec3;
+    let point2: Vec3;
+
+    if (minDist === d1) {
+      vertex = line1Start;
+      point1 = line1End;
+      point2 = line2End;
+    } else if (minDist === d2) {
+      vertex = line1Start;
+      point1 = line1End;
+      point2 = line2Start;
+    } else if (minDist === d3) {
+      vertex = line1End;
+      point1 = line1Start;
+      point2 = line2End;
+    } else {
+      vertex = line1End;
+      point1 = line1Start;
+      point2 = line2Start;
+    }
+
+    this._vertex = [...vertex];
+
+    // Calculate angles from vertex to each point
+    const angle1 = Math.atan2(point1[1] - vertex[1], point1[0] - vertex[0]);
+    const angle2 = Math.atan2(point2[1] - vertex[1], point2[0] - vertex[0]);
+
+    // Determine the angle span (use CCW arc)
+    let deltaAngle = angle2 - angle1;
+    if (deltaAngle < 0) {
+      deltaAngle += 2 * Math.PI;
+    }
+
+    this._startAngle = angle1;
+    this._angleValue = deltaAngle;
+
+    this._generatePoints();
+    return this;
+  }
+
   private _distance(p1: Vec3, p2: Vec3): number {
     const dx = p2[0] - p1[0];
     const dy = p2[1] - p1[1];

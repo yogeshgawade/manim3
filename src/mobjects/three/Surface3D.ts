@@ -60,6 +60,7 @@ export interface Surface3DOptions {
  */
 export class Surface3D extends Mobject {
   uvFunction: (u: number, v: number) => Vec3;
+  uvFunctionVersion: number; // Incremented when uvFunction changes
   uRange: [number, number];
   vRange: [number, number];
   uResolution: number;
@@ -77,6 +78,7 @@ export class Surface3D extends Mobject {
     super();
 
     this.uvFunction = options.uvFunction;
+    this.uvFunctionVersion = 0;
     this.uRange = options.uRange ?? [0, 1];
     this.vRange = options.vRange ?? [0, 1];
     this.uResolution = options.uResolution ?? 32;
@@ -118,6 +120,7 @@ export class Surface3D extends Mobject {
 
   setUVFunction(fn: (u: number, v: number) => Vec3): this {
     this.uvFunction = fn;
+    this.uvFunctionVersion++;
     this.markDirty();
     return this;
   }

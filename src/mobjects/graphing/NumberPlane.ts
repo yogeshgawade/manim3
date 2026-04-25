@@ -132,8 +132,7 @@ export class NumberPlane extends Axes {
       line.opacity = opacity;
 
       this._backgroundLines.push(line);
-      // Add as first child so it appears behind axes
-      this.children.unshift(line);
+      this.add(line);
     }
 
     // Generate horizontal lines (parallel to x-axis)
@@ -154,8 +153,7 @@ export class NumberPlane extends Axes {
       line.opacity = opacity;
 
       this._backgroundLines.push(line);
-      // Add as first child so it appears behind axes
-      this.children.unshift(line);
+      this.add(line);
     }
   }
 

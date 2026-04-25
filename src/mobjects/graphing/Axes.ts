@@ -1,7 +1,7 @@
-import { VGroup } from '../../core/VGroup';
 import { Group } from '../../core/Group';
-import { NumberLine, NumberLineOptions } from './NumberLine';
+import { VMobject } from '../../core/VMobject';
 import { Arrow } from '../geometry/Arrow';
+import { Line } from '../geometry/Line';
 import { FunctionGraph, FunctionGraphOptions } from './FunctionGraph';
 
 /**
@@ -18,12 +18,10 @@ export interface AxesOptions {
   yLength?: number;
   /** Stroke color for axes. Default: '#ffffff' */
   color?: string;
-  /** Common configuration for both axes */
-  axisConfig?: Partial<NumberLineOptions>;
-  /** Configuration specific to x-axis (overrides axisConfig) */
-  xAxisConfig?: Partial<NumberLineOptions>;
-  /** Configuration specific to y-axis (overrides axisConfig) */
-  yAxisConfig?: Partial<NumberLineOptions>;
+  /** Stroke width for axes. Default: 2 */
+  strokeWidth?: number;
+  /** Size of tick marks. Default: 0.2 */
+  tickSize?: number;
   /** Whether to include arrow tips on axes. Default: true */
   tips?: boolean;
   /** Length of arrow tips. Default: 0.25 */
@@ -54,17 +52,21 @@ export interface AxesOptions {
  * ```
  */
 export class Axes extends Group {
-  /** The x-axis NumberLine */
-  xAxis: NumberLine;
-  /** The y-axis NumberLine */
-  yAxis: NumberLine;
+  /** The x-axis VMobject */
+  xAxis: VMobject;
+  /** The y-axis VMobject */
+  yAxis: VMobject;
 
   private _xRange: [number, number, number];
   private _yRange: [number, number, number];
   private _xLength: number;
   private _yLength: number;
+  private _color: string;
+  private _strokeWidth: number;
+  private _tickSize: number;
   private _tips: boolean;
   private _tipLength: number;
+  private _tipExtension: number;
 
   constructor(options: AxesOptions = {}) {
     super();
@@ -75,9 +77,8 @@ export class Axes extends Group {
       xLength = 10,
       yLength = 6,
       color = '#ffffff',
-      axisConfig = {},
-      xAxisConfig = {},
-      yAxisConfig = {},
+      strokeWidth = 2,
+      tickSize = 0.2,
       tips = true,
       tipLength = 0.25,
     } = options;
@@ -96,68 +97,110 @@ export class Axes extends Group {
     this._yRange = yRange;
     this._xLength = xLength;
     this._yLength = yLength;
+    this._color = color;
+    this._strokeWidth = strokeWidth;
+    this._tickSize = tickSize;
     this._tips = tips;
     this._tipLength = tipLength;
+    this._tipExtension = 0.25; // Extension factor (in units) beyond last tick
 
     // Create x-axis (horizontal)
-    this.xAxis = new NumberLine({
-      xRange,
-      length: xLength,
-      color,
-      includeTicks: true,
-      includeNumbers: false,
-      ...axisConfig,
-      ...xAxisConfig,
-    });
+    this.xAxis = this._createAxis(xRange, xLength, color, strokeWidth, tickSize, false);
 
     // Create y-axis (vertical)
-    this.yAxis = new NumberLine({
-      xRange: yRange,
-      length: yLength,
-      color,
-      includeTicks: true,
-      includeNumbers: false,
-      ...axisConfig,
-      ...yAxisConfig,
-    });
-    // Rotate y-axis to vertical
-    this.yAxis.rotation[2] = Math.PI / 2;
+    this.yAxis = this._createAxis(yRange, yLength, color, strokeWidth, tickSize, true);
 
     this.add(this.xAxis, this.yAxis);
 
     // Add tips if requested
     if (tips) {
-      this._addTips(color);
+      this._addTips(color, strokeWidth);
     }
+  }
+
+  /**
+   * Create an axis line with ticks
+   */
+  private _createAxis(
+    range: [number, number, number],
+    length: number,
+    color: string,
+    strokeWidth: number,
+    tickSize: number,
+    isVertical: boolean
+  ): VMobject {
+    const axis = new VMobject();
+    axis.fillColor = color;
+    axis.fillOpacity = 0;
+    axis.strokeWidth = strokeWidth;
+
+    const [min, max, step] = range;
+    const unitLength = length / (max - min);
+
+    // Extend line beyond last tick to connect with tip
+    const extension = this._tips ? unitLength * this._tipExtension : 0;
+    const start = min * unitLength;
+    const end = max * unitLength + extension;
+
+    // Create main axis line
+    const linePoints: number[][] = [
+      [start, 0, 0],
+      [(start + end) / 2, 0, 0],
+      [(start + end) / 2, 0, 0],
+      [end, 0, 0],
+    ];
+
+    axis.setPoints3D(linePoints);
+
+    // Generate tick marks
+    const epsilon = step * 1e-6;
+    for (let x = min; x <= max + epsilon; x += step) {
+      const xPos = Math.round(x / step) * step;
+
+      // Create tick mark as a small line
+      const tick = new Line({
+        start: [xPos * unitLength, -tickSize / 2, 0],
+        end: [xPos * unitLength, tickSize / 2, 0],
+        color,
+        strokeWidth: 2,
+      });
+      axis.add(tick);
+    }
+
+    if (isVertical) {
+      axis.rotation[2] = Math.PI / 2;
+    }
+
+    return axis;
   }
 
   /**
    * Add arrow tips to the axes
    */
-  private _addTips(color: string): void {
+  private _addTips(color: string, strokeWidth: number): void {
     const [xMin, xMax] = this._xRange;
     const [yMin, yMax] = this._yRange;
     const xUnitLength = this._xLength / (xMax - xMin);
     const yUnitLength = this._yLength / (yMax - yMin);
 
-    // X-axis tip (at right end, pointing right)
-    const xTipX = xMax * xUnitLength;
+    // X-axis tip (at end of extended line)
+    const xTipX = xMax * xUnitLength + xUnitLength * this._tipExtension;
     const xTip = new Arrow({
       start: [xTipX, 0, 0],
       end: [xTipX + this._tipLength, 0, 0],
       color,
-      strokeWidth: 2,
+      strokeWidth,
       tipLength: this._tipLength * 0.8,
     });
     this.add(xTip);
 
-    // Y-axis tip (at top end, pointing up)
-    const yTipY = yMax * yUnitLength;
+    // Y-axis tip (at end of extended line)
+    const yTipY = yMax * yUnitLength + yUnitLength * this._tipExtension;
     const yTip = new Arrow({
       start: [0, yTipY, 0],
       end: [0, yTipY + this._tipLength, 0],
       color,
-      strokeWidth: 2,
+      strokeWidth,
       tipLength: this._tipLength * 0.8,
     });
     this.add(yTip);
@@ -262,7 +305,9 @@ export class Axes extends Group {
       yRange: this._yRange,
       xLength: this._xLength,
       yLength: this._yLength,
-      color: this.xAxis.fillColor,
+      color: this._color,
+      strokeWidth: this._strokeWidth,
+      tickSize: this._tickSize,
       tips: this._tips,
       tipLength: this._tipLength,
     });
