@@ -1,8 +1,10 @@
 import type { AnimationTrack } from './AnimationTrack';
 import type { VMobject } from '../core/VMobject';
 import type { Mobject } from '../core/Mobject';
-import type { RateFunction } from '../core/types';
+import type { RateFunction, Vec3 } from '../core/types';
 import { MorphTrack } from './MorphTrack';
+import { hungarian } from '../utils/hungarian';
+import { lerpVec3 } from '../utils/svgPathConverter';
 
 /**
  * Extracts all leaf VMobjects (with points3D) from a Mobject hierarchy.
@@ -22,79 +24,11 @@ function getVMobjectChildren(mob: Mobject): VMobject[] {
 }
 
 /**
- * Greedy Hungarian-style matching between source and target VMobjects.
- * Matches by shape similarity (size + point count + spatial proximity).
- * Lower cost = better match.
- */
-export function hungarianMatching(
-  sources: VMobject[],
-  targets: VMobject[],
-): Map<number, number> {
-  const n = Math.max(sources.length, targets.length);
-  const costMatrix: number[][] = [];
-
-  for (let i = 0; i < sources.length; i++) {
-    const row: number[] = [];
-    for (let j = 0; j < targets.length; j++) {
-      row.push(computeSimilarityCost(sources[i], targets[j]));
-    }
-    while (row.length < n) row.push(1000);
-    costMatrix.push(row);
-  }
-
-  while (costMatrix.length < n) {
-    costMatrix.push(Array(n).fill(1000));
-  }
-
-  const matches = new Map<number, number>();
-  const usedTargets = new Set<number>();
-
-  for (let i = 0; i < sources.length; i++) {
-    let bestJ = -1;
-    let bestCost = Infinity;
-    for (let j = 0; j < targets.length; j++) {
-      if (!usedTargets.has(j) && costMatrix[i][j] < bestCost) {
-        bestCost = costMatrix[i][j];
-        bestJ = j;
-      }
-    }
-    if (bestJ >= 0) {
-      matches.set(i, bestJ);
-      usedTargets.add(bestJ);
-    }
-  }
-
-  return matches;
-}
-
-function computeSimilarityCost(a: VMobject, b: VMobject): number {
-  const boundsA = getBounds(a.points3D);
-  const boundsB = getBounds(b.points3D);
-  const sizeDiff = Math.abs(boundsA.width - boundsB.width) +
-    Math.abs(boundsA.height - boundsB.height);
-  const countDiff = Math.abs(a.points3D.length - b.points3D.length) * 0.1;
-  const dx = a.position[0] - b.position[0];
-  const dy = a.position[1] - b.position[1];
-  const distance = Math.sqrt(dx * dx + dy * dy) * 0.01;
-  return sizeDiff + countDiff + distance;
-}
-
-function getBounds(points: number[][]): { width: number; height: number } {
-  if (points.length === 0) return { width: 0, height: 0 };
-  const xs = points.map(p => p[0]);
-  const ys = points.map(p => p[1]);
-  return {
-    width: Math.max(...xs) - Math.min(...xs),
-    height: Math.max(...ys) - Math.min(...ys),
-  };
-}
-
-/**
  * VGroupMorphTrack — Morphs between two groups of VMobjects using Hungarian matching.
  *
  * - Matched pairs: MorphTrack (shape + opacity interpolation)
- * - Unmatched sources: fade out (opacity captured at prepare time, not forced)
- * - Unmatched targets: fade in  (opacity captured at prepare time, not forced)
+ * - Unmatched sources: fade out (opacity captured at first interpolate() call, not forced)
+ * - Unmatched targets: fade in  (opacity starts at 0, no forced initial value)
  *
  * prepare() is idempotent and safe to call multiple times (no _prepared guard),
  * so scrub/seek re-initializes all child tracks correctly.
@@ -110,9 +44,17 @@ export class VGroupMorphTrack implements AnimationTrack {
   private sourceChildren: VMobject[];
   private targetChildren: VMobject[];
 
+  private startGroupPos!: Vec3;
+  private endGroupPos!: Vec3;
+  private groupPosCaptured = false;
+
   get mobject() {
     // Return first source child as representative mobject
     return this.sourceChildren[0] as unknown as Mobject;
+  }
+
+  get rateFunc(): RateFunction {
+    return this.trackRateFunc;
   }
 
   get duration() {
@@ -124,10 +66,6 @@ export class VGroupMorphTrack implements AnimationTrack {
     );
   }
 
-  get rateFunc() {
-    return (t: number) => t;
-  }
-
   constructor(
     private sourceGroup: Mobject,
     private targetGroup: Mobject,
@@ -137,44 +75,56 @@ export class VGroupMorphTrack implements AnimationTrack {
     this.sourceChildren = getVMobjectChildren(sourceGroup);
     this.targetChildren = getVMobjectChildren(targetGroup);
 
-    const matches = hungarianMatching(this.sourceChildren, this.targetChildren);
+    // Build cost matrix using point count difference (shape identity)
+    const costMatrix: number[][] = this.sourceChildren.map(src =>
+      this.targetChildren.map(tgt =>
+        Math.abs(src.points3D.length - tgt.points3D.length)
+      )
+    );
 
-    // Matched pairs → MorphTrack
-    for (const [srcIdx, tgtIdx] of matches) {
-      const src = this.sourceChildren[srcIdx];
-      const tgt = this.targetChildren[tgtIdx];
-      if (src && tgt) {
-        this.childTracks.push(new MorphTrack(src, tgt, this.trackDuration, this.trackRateFunc));
-      }
-    }
+    const result = hungarian(costMatrix);
 
-    // Unmatched sources → fade out
-    const matchedSources = new Set(matches.keys());
+    // Matched pairs → MorphTrack (pure local space, no offsets)
     for (let i = 0; i < this.sourceChildren.length; i++) {
-      if (!matchedSources.has(i)) {
+      const j = result.assignments[i];
+      if (j >= 0) {
+        this.childTracks.push(new MorphTrack(
+          this.sourceChildren[i],
+          this.targetChildren[j],
+          this.trackDuration, this.trackRateFunc,
+        ));
+      } else {
         this.fadeOutTracks.push(this.createFadeOut(this.sourceChildren[i]));
       }
     }
 
     // Unmatched targets → fade in
-    const matchedTargets = new Set(matches.values());
-    for (let i = 0; i < this.targetChildren.length; i++) {
-      if (!matchedTargets.has(i)) {
-        this.fadeInTracks.push(this.createFadeIn(this.targetChildren[i]));
+    for (let j = 0; j < this.targetChildren.length; j++) {
+      if (!result.assignedCols.has(j)) {
+        this.fadeInTracks.push(this.createFadeIn(this.targetChildren[j]));
       }
     }
   }
 
   prepare(): void {
-    // No _prepared guard — safe to call multiple times.
-    // MorphTrack.prepare() tears down and rebuilds its GSAP tween each time.
-    // fadeIn/fadeOut inline tracks capture opacity fresh each time.
+    // Reset group position capture flag for scrub/seek support
+    this.groupPosCaptured = false;
     for (const track of this.childTracks) track?.prepare();
     for (const track of this.fadeInTracks) track.prepare();
     for (const track of this.fadeOutTracks) track.prepare();
   }
 
   interpolate(alpha: number): void {
+    // Capture group positions lazily on first call
+    if (!this.groupPosCaptured) {
+      this.startGroupPos = [...this.sourceGroup.position] as Vec3;
+      this.endGroupPos = [...this.targetGroup.position] as Vec3;
+      this.groupPosCaptured = true;
+    }
+    // Animate sourceGroup position toward targetGroup position
+    this.sourceGroup.position = lerpVec3(this.startGroupPos, this.endGroupPos, alpha);
+    this.sourceGroup.markDirty();
+
     for (const track of this.childTracks) track?.interpolate(alpha);
     for (const track of this.fadeInTracks) track.interpolate(alpha);
     for (const track of this.fadeOutTracks) track.interpolate(alpha);
@@ -196,7 +146,13 @@ export class VGroupMorphTrack implements AnimationTrack {
    */
   private createFadeIn(mob: VMobject): AnimationTrack {
     let clone: VMobject | null = null;
-    let capturedOpacity = 0;
+
+    // Target local position of this glyph within targetGroup (frozen at construction)
+    const targetLocalPos: Vec3 = [...mob.position] as Vec3;
+
+    // Positions captured lazily in interpolate()
+    let startLocalPos: Vec3 = [0, 0, 0];
+    let positionCaptured = false;
 
     return {
       id: crypto.randomUUID(),
@@ -206,48 +162,76 @@ export class VGroupMorphTrack implements AnimationTrack {
       remover: false,
       prepare: () => {
         if (!clone) {
-          // First time — create clone and add to scene
           clone = mob.copy() as VMobject;
           this.sourceGroup.add(clone);
         }
-        // Always reset opacity — works for first play AND replay
+        // Reset so positions are recalculated on first interpolate
+        positionCaptured = false;
         clone.opacity = 0;
         clone.markDirty();
-        capturedOpacity = 0;
       },
       interpolate: (alpha: number) => {
         if (!clone) return;
-        clone.opacity = capturedOpacity + (1 - capturedOpacity) * alpha;
+        if (!positionCaptured) {
+          // Start from average position of source children in local space
+          const matched = this.sourceChildren;
+          startLocalPos = matched.length > 0 ? matched.reduce((acc, m) => [
+            acc[0] + m.position[0] / matched.length,
+            acc[1] + m.position[1] / matched.length,
+            acc[2] + m.position[2] / matched.length,
+          ], [0, 0, 0]) as Vec3 : [0, 0, 0] as Vec3;
+          positionCaptured = true;
+        }
+        clone.opacity = alpha;
+        // Lerp from startLocalPos to targetLocalPos (both in local space)
+        clone.position = [
+          startLocalPos[0] + (targetLocalPos[0] - startLocalPos[0]) * alpha,
+          startLocalPos[1] + (targetLocalPos[1] - startLocalPos[1]) * alpha,
+          startLocalPos[2] + (targetLocalPos[2] - startLocalPos[2]) * alpha,
+        ] as Vec3;
         clone.markDirty();
       },
       dispose: () => {
-        if (clone) {
-          this.sourceGroup.remove?.(clone);
-          clone = null;
-        }
+        // clone stays in sourceGroup — it's now part of the morphed expression
       },
     };
   }
 
   /**
    * Fade out an unmatched source glyph (has no corresponding target).
-   * Captures actual opacity at prepare() time — never forces a value.
-   * This avoids flashing glyphs visible (opacity=1) for one frame on addTrack.
+   * Captures actual opacity at first interpolate() call — never forces a value.
+   * Moves the glyph from its current position toward the target group center while fading out.
    */
   private createFadeOut(mob: VMobject): AnimationTrack {
     let capturedOpacity = 1;
+    let opacityCaptured = false;
+    let startLocalPos: Vec3 = [0, 0, 0];
+
     return {
       id: crypto.randomUUID(),
       mobject: mob,
       duration: this.trackDuration,
       rateFunc: this.trackRateFunc,
-      remover: true,
+      remover: false,
       prepare: () => {
-        // Read current opacity — don't force to 1
-        capturedOpacity = mob.opacity;
+        // Reset flag so opacity is re-captured on first interpolate() call.
+        opacityCaptured = false;
       },
       interpolate: (alpha: number) => {
+        // Capture opacity and position on first call (when alpha is 0).
+        if (!opacityCaptured) {
+          capturedOpacity = mob.opacity;
+          startLocalPos = [...mob.position] as Vec3;
+          opacityCaptured = true;
+        }
+        // Fade out
         mob.opacity = capturedOpacity * (1 - alpha);
+        // Move from start position toward group center [0, 0, 0] in local space
+        mob.position = [
+          startLocalPos[0] * (1 - alpha),
+          startLocalPos[1] * (1 - alpha),
+          startLocalPos[2] * (1 - alpha),
+        ] as Vec3;
         mob.markDirty();
       },
       dispose: () => { },

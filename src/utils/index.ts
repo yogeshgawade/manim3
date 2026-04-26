@@ -51,3 +51,4 @@ export * from './rateFunctions';
 export * from './bezierUtils';
 export * from './earcutFillGeometry';
 export * from './svgPathConverter';
+export * from './hungarian';

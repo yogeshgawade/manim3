@@ -33,7 +33,7 @@ export class FadeGroupTrack implements AnimationTrack {
 
   constructor(
     private targetMobject: Mobject,
-    private startOpacity: number,
+    private startOpacity: number | null,
     private endOpacity: number,
     private trackDuration: number = 1,
     private trackRateFunc: RateFunction = (t) => t,
@@ -114,7 +114,8 @@ export function fadeIn(group: Mobject, options: FadeOptions = {}): FadeGroupTrac
  */
 export function fadeOut(group: Mobject, options: FadeOptions = {}): FadeGroupTrack {
   const { duration = 1, rateFunc, lagRatio = 0 } = options;
-  const track = new FadeGroupTrack(group, 1, 0, duration, rateFunc, lagRatio);
+  // Pass null for startOpacity to capture actual current opacity at prepare() time
+  const track = new FadeGroupTrack(group, null, 0, duration, rateFunc, lagRatio);
   track.remover = true;
   return track;
 }

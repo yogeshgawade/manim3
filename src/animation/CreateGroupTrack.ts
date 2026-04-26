@@ -154,3 +154,27 @@ export function create(group: Mobject, options: CreateOptions = {}): CreateGroup
   const { duration = 1, rateFunc, lagRatio = 0, strokeFillLagRatio = 0.5 } = options;
   return new CreateGroupTrack(group, duration, rateFunc, lagRatio, strokeFillLagRatio);
 }
+
+
+export function uncreate(group: Mobject, options: CreateOptions = {}): CreateGroupTrack {
+  const { duration = 1, rateFunc, lagRatio = 0, strokeFillLagRatio = 0.5 } = options;
+  const track = new CreateGroupTrack(group, duration, rateFunc, lagRatio, strokeFillLagRatio);
+  const orig = track.interpolate.bind(track);
+  track.interpolate = (alpha: number) => orig(1 - alpha);
+  return track;
+}
+
+export function createReverse(group: Mobject, options: CreateOptions = {}): CreateGroupTrack {
+  const { duration = 1, rateFunc, lagRatio = 0, strokeFillLagRatio = 0.5 } = options;
+  const track = new CreateGroupTrack(group, duration, rateFunc, lagRatio, strokeFillLagRatio);
+  const origPrepare = track.prepare.bind(track);
+  let reversed = false;
+  track.prepare = () => {
+    origPrepare();
+    if (!reversed) {
+      (track as any).childTracks.reverse();
+      reversed = true;
+    }
+  };
+  return track;
+}
