@@ -4,7 +4,7 @@ import { MathTex } from '../../src/mobjects/text/MathTex';
 import { VGroupMorphTrack } from '../../src/animation/VGroupMorphTrack';
 import { fadeIn, fadeOut } from '../../src/animation/FadeGroupTrack';
 import { smooth, linear } from '../../src/utils/rateFunctions';
-import { BLUE, GREEN } from '../../src/constants/colors';
+import { BLUE, GREEN, RED } from '../../src/constants/colors';
 
 declare global {
   interface Window {
@@ -16,7 +16,7 @@ const scene = window.testScene as Scene;
 
 // Create MathTex1 at left position
 const mathTex1 = new MathTex({
-  latex: '1234',
+  latex: '123',
   color: BLUE,
   fontSize: 2,
   strokeWidth: 2,
@@ -37,7 +37,7 @@ mathTex2.position = [3, -1, 0];
 // Create MathTex2 at different (right-bottom) position with different equation
 const mathTex3 = new MathTex({
   latex: '1354',
-  color: GREEN,
+  color: RED,
   fontSize: 2,
   strokeWidth: 2,
   fillOpacity: 1,

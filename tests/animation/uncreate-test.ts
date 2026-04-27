@@ -4,7 +4,7 @@ import { MathTex } from '../../src/mobjects/text/MathTex';
 import { fadeIn } from '../../src/animation/FadeGroupTrack';
 import { create, createReverse, uncreate } from '../../src/animation/CreateGroupTrack';
 import { smooth , linear} from '../../src/utils/rateFunctions';
-import { BLUE } from '../../src/constants/colors';
+import { BLUE, WHITE } from '../../src/constants/colors';
 
 
 declare global {
@@ -17,9 +17,10 @@ const scene = window.testScene as Scene;
 
 // Create MathTex equation
 const equation = new MathTex({
-  latex: 'x^2 + y^2 = r^2',
-  color: BLUE,
+  latex: 'qwerty',
+  color: WHITE,
   fontSize: 1.5,
+  strokeWidth: 1
 });
 equation.position = [0, 0, 0];
 
@@ -36,7 +37,7 @@ async function runAnimation() {
 
   // Phase 2: Uncreate (reverse draw) the equation
   scene.at('+=0.5').play(
-    create(equation, { duration: 0.5, rateFunc: linear, lagRatio: 0.1, strokeFillLagRatio: 0.5 })
+    create(equation, { duration: 0.5, rateFunc: linear, lagRatio: 0.33, strokeFillLagRatio: 0.66 })
   );
   console.log('[Uncreate Test] Phase 2: MathTex uncreate (reverse draw)');
 

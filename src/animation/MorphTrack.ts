@@ -34,6 +34,10 @@ export class MorphTrack extends BaseAnimationTrack {
   private endOpacity: number;
   private startColor!: string;
   private endColor: string;
+  private startFillColor!: string;
+  private endFillColor: string;
+  private startFillOpacity!: number;
+  private endFillOpacity: number;
   private target: VMobject;
 
   private gsapTween: gsap.core.Tween | null = null;
@@ -58,6 +62,8 @@ export class MorphTrack extends BaseAnimationTrack {
     this.endScale = [...(target.scale || [1, 1, 1])];
     this.endOpacity = target.opacity;
     this.endColor = target.color ?? '#ffffff';
+    this.endFillColor = (target as any).fillColor ??  this.endColor;
+    this.endFillOpacity = (target as any).fillOpacity ?? 0;
   }
 
   prepare(): void {
@@ -83,6 +89,8 @@ export class MorphTrack extends BaseAnimationTrack {
       this.startPosition = [...source.position] as Vec3;
       this.startScale    = [...(source.scale || [1, 1, 1])] as Vec3;
       this.startColor    = source.color ?? '#ffffff';
+      this.startFillColor = (source as any).fillColor ??  this.startColor;
+      this.startFillOpacity = (source as any).fillOpacity ?? 0;
       this.endOpacity    = 1;
 
       // Build paths from actual current source state (pure local space, no offsets)
@@ -133,6 +141,7 @@ export class MorphTrack extends BaseAnimationTrack {
         source.scale    = lerpVec3(this.startScale,    this.endScale,    progress);
         source.color    = lerpColor(this.startColor, this.endColor, progress);
         source.opacity = lerp(this.startOpacity, this.endOpacity, progress);
+        source.fillColor = lerpColor(this.startFillColor, this.endFillColor, progress);
         source.markDirty();
       };
 
