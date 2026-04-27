@@ -45,58 +45,41 @@ export class SpinInFromNothingTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this._prepared = false;
+    this.endScale = null;
+    this.endRotation = null;
+    this.originalColor = null;
+    this.targetColor = null;
+  }
+
+  captureStartState(): void {
     if (this._prepared) return;
     this._prepared = true;
-
-    // Capture target state only
     this.endScale = [...this.mobject.scale] as Vec3;
     this.endRotation = [...this.mobject.rotation] as Vec3;
     this.targetColor = this.mobject.color;
-
-    // Save original color if needed
     if (this.pointColor) {
       this.originalColor = this.mobject.color;
     }
   }
 
   interpolate(alpha: number): void {
-    // Ensure end values are set
-    if (this.endScale === null) {
-      this.endScale = [1, 1, 1];
+    if (this.endScale === null || this.endRotation === null) {
+      return;
     }
-    if (this.endRotation === null) {
-      this.endRotation = [0, 0, 0];
-    }
-
-    // On first frame, apply initial state
-    if (this.mobject.scale[0] !== 0 && alpha < 0.01) {
-      this.mobject.scale = [0, 0, 0];
-      this.mobject.rotation = [
-        this.endRotation[0],
-        this.endRotation[1],
-        this.endRotation[2] - this.angle,
-      ];
-      if (this.pointColor && this.originalColor) {
-        this.mobject.color = this.pointColor;
-      }
+    if (this.pointColor && this.originalColor) {
+      this.mobject.color = alpha > 0.5 ? this.targetColor! : this.originalColor;
     }
 
-    // Interpolate scale from 0 to endScale
     const startScale: Vec3 = [0, 0, 0];
     this.mobject.scale = lerpVec3(startScale, this.endScale, alpha);
 
-    // Interpolate rotation
     const startRotation: Vec3 = [
       this.endRotation[0],
       this.endRotation[1],
       this.endRotation[2] - this.angle,
     ];
     this.mobject.rotation = lerpVec3(startRotation, this.endRotation, alpha);
-
-    // Interpolate color if pointColor was specified
-    if (this.pointColor && this.targetColor && this.originalColor) {
-      this.mobject.color = alpha > 0.5 ? this.targetColor : this.originalColor;
-    }
 
     this.mobject.markDirty();
   }

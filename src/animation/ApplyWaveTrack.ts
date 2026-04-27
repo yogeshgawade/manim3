@@ -61,6 +61,10 @@ export class ApplyWaveTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this.originalPoints = [];
+  }
+
+  captureStartState(): void {
     this.startPosition = [...this.mobject.position] as Vec3;
     this.center = this.mobject.getCenter();
 
@@ -68,7 +72,6 @@ export class ApplyWaveTrack extends BaseAnimationTrack {
       const vmob = this.mobject as VMobject;
       this.originalPoints = vmob.points3D.map(p => [...p]);
 
-      // Calculate bounds
       if (this.originalPoints.length > 0) {
         this.bounds = {
           minX: Math.min(...this.originalPoints.map(p => p[0])),

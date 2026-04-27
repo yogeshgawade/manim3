@@ -39,22 +39,23 @@ export class GrowArrowTrack extends BaseAnimationTrack {
   private _finalPos: Vec3 | null = null;
 
   prepare(): void {
+    this._prepared = false;
+    this.endScale = null;
+    this.targetColor = null;
+    this.originalColor = null;
+    this._finalPos = null;
+  }
+
+  captureStartState(): void {
     if (this._prepared) return;
-    this._prepared = true;
-
     const arrow = this.mobject as Arrow;
-
-    // Capture target state only
+    this._prepared = true;
     this.endScale = [...arrow.scale] as Vec3;
     this.targetColor = arrow.color;
     this._finalPos = [...arrow.position] as Vec3;
-
-    // Save original color if needed
     if (this.pointColor) {
       this.originalColor = arrow.color;
     }
-
-    // Set opacity to 0 for all family members (Arrow is a Group)
     for (const mob of arrow.getFamily()) {
       mob.opacity = 0;
     }
@@ -62,38 +63,20 @@ export class GrowArrowTrack extends BaseAnimationTrack {
 
   interpolate(alpha: number): void {
     const arrow = this.mobject as Arrow;
-
-    // On first call, set the starting state
-    if (this.endScale === null) {
-      this.endScale = [1, 1, 1];
-    }
-    if (this._finalPos === null) {
-      this._finalPos = [...arrow.position] as Vec3;
+    if (this.endScale === null || this._finalPos === null) {
+      return;
     }
 
-    // Apply initial state on first frame
-    if (arrow.scale[0] !== 0 && alpha < 0.01) {
-      arrow.scale = [0, 0, 0];
+    if (alpha === 0) {
       arrow.position = [...this.startPoint] as Vec3;
-      if (this.pointColor && this.originalColor) {
-        arrow.color = this.pointColor;
-      }
+    }
+    if (this.pointColor && this.originalColor) {
+      arrow.color = alpha > 0.5 ? this.targetColor! : this.originalColor;
     }
 
-    // Interpolate scale from 0 to endScale
     const startScale: Vec3 = [0, 0, 0];
     arrow.scale = lerpVec3(startScale, this.endScale, alpha);
-
-    // Interpolate position to maintain start point as anchor
-    // When scaling grows, position shifts from start point toward final position
     arrow.position = lerpVec3(this.startPoint, this._finalPos!, alpha);
-
-    // Interpolate color if pointColor was specified
-    if (this.pointColor && this.targetColor && this.originalColor) {
-      arrow.color = alpha > 0.5 ? this.targetColor : this.originalColor;
-    }
-
-    // Set opacity to 1 for all family members (Arrow is a Group)
     for (const mob of arrow.getFamily()) {
       mob.opacity = 1;
       mob.markDirty();

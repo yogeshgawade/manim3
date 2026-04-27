@@ -4,8 +4,7 @@ import type { RateFunction } from '../core/types';
 import { FadeTrack } from './FadeTrack';
 
 /**
- * FadeGroupTrack â€” Fades an entire group of mobjects (including all descendants).
- * Follows the same composite pattern as VGroupMorphTrack.
+ * FadeGroupTrack - Fades an entire group of mobjects including descendants.
  */
 export class FadeGroupTrack implements AnimationTrack {
   id = crypto.randomUUID();
@@ -18,13 +17,7 @@ export class FadeGroupTrack implements AnimationTrack {
   }
 
   get duration() {
-    if (this.lagRatio > 0) {
-      // stagger mode: total duration includes overlap
-      const maxChildDur = Math.max(...this.childTracks.map(t => t.duration), 0);
-      const fullLen = (this.childTracks.length - 1) * this.lagRatio + 1;
-      return maxChildDur * fullLen;
-    }
-    return Math.max(...this.childTracks.map(t => t.duration), 0);
+    return this.trackDuration;
   }
 
   get rateFunc() {
@@ -38,26 +31,29 @@ export class FadeGroupTrack implements AnimationTrack {
     private trackDuration: number = 1,
     private trackRateFunc: RateFunction = (t) => t,
     private lagRatio: number = 0,
-  ) { }
+  ) {}
 
   prepare(): void {
-    if (this.prepared) return;
-    this.prepared = true;
-    // Always clear before rebuilding â€” safe for re-seek / re-prepare
-    for (const track of this.childTracks) track.dispose();
+    for (const track of this.childTracks) {
+      track.dispose();
+    }
     this.childTracks = [];
-    // Get all family members (this + all descendants)
-    const family = this.targetMobject.getFamily();
+    this.prepared = false;
+  }
 
-    // Create fade tracks for each family member
-    for (const mob of family) {
-      const track = new FadeTrack(mob, this.startOpacity, this.endOpacity, this.trackDuration, this.trackRateFunc);
-      this.childTracks.push(track);
+  captureStartState(): void {
+    if (!this.prepared) {
+      this.prepared = true;
+      const family = this.targetMobject.getFamily();
+      for (const mob of family) {
+        const track = new FadeTrack(mob, this.startOpacity, this.endOpacity, this.trackDuration, this.trackRateFunc);
+        track.prepare();
+        this.childTracks.push(track);
+      }
     }
 
-    // Prepare all child tracks
     for (const track of this.childTracks) {
-      track.prepare();
+      track.captureStartState?.();
     }
   }
 
@@ -67,14 +63,17 @@ export class FadeGroupTrack implements AnimationTrack {
       this.childTracks[i].interpolate(childAlpha);
     }
   }
-
+  
   private computeChildAlpha(alpha: number, i: number, n: number): number {
-    if (this.lagRatio === 0) return alpha;
-    const fullLen = (n - 1) * this.lagRatio + 1;
-    const start = (i * this.lagRatio) / fullLen;
-    const end = start + 1 / fullLen;
-    if (alpha < start) return 0;
-    if (alpha > end) return 1;
+    if (this.lagRatio === 0 || n <= 1) return alpha;
+
+    // Standard manim stagger: child runtime ratio accounts for lag between starts
+    const childRunTimeRatio = 1 / (1 + (n - 1) * this.lagRatio);
+    const start = i * this.lagRatio * childRunTimeRatio;
+    const end = start + childRunTimeRatio;
+
+    if (alpha <= start) return 0;
+    if (alpha >= end) return 1;
     return (alpha - start) / (end - start);
   }
 
@@ -88,33 +87,18 @@ export class FadeGroupTrack implements AnimationTrack {
 }
 
 export interface FadeOptions {
-  /** Duration of the animation in seconds. Default: 1 */
   duration?: number;
-  /** Rate function controlling animation pacing */
   rateFunc?: RateFunction;
-  /** Stagger ratio for animating children sequentially (0 = simultaneous). Default: 0 */
   lagRatio?: number;
 }
 
-/**
- * Fade in a mobject (and all its descendants).
- * @param group The mobject or group to fade in
- * @param options Fade options (duration, rateFunc, lagRatio)
- */
 export function fadeIn(group: Mobject, options: FadeOptions = {}): FadeGroupTrack {
   const { duration = 1, rateFunc, lagRatio = 0 } = options;
-  const track = new FadeGroupTrack(group, 0, 1, duration, rateFunc, lagRatio);
-  return track;
+  return new FadeGroupTrack(group, 0, 1, duration, rateFunc, lagRatio);
 }
 
-/**
- * Fade out a mobject (and all its descendants).
- * @param group The mobject or group to fade out
- * @param options Fade options (duration, rateFunc, lagRatio)
- */
 export function fadeOut(group: Mobject, options: FadeOptions = {}): FadeGroupTrack {
   const { duration = 1, rateFunc, lagRatio = 0 } = options;
-  // Pass null for startOpacity to capture actual current opacity at prepare() time
   const track = new FadeGroupTrack(group, null, 0, duration, rateFunc, lagRatio);
   track.remover = true;
   return track;

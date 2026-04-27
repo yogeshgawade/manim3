@@ -41,6 +41,9 @@ export class PulseTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+  }
+
+  captureStartState(): void {
     this.startScale = [...this.mobject.scale] as Vec3;
   }
 

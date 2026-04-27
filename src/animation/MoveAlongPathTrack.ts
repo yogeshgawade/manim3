@@ -41,7 +41,7 @@ export interface MoveAlongPathOptions {
 export class MoveAlongPathTrack extends BaseAnimationTrack {
   private pathPoints: number[][];
   private numSegments: number;
-  private centerOffset: Vec3;
+  private centerOffset: Vec3 | null;
   private rotateAlongPath: boolean;
 
   constructor(mobject: Mobject, options: MoveAlongPathOptions) {
@@ -51,16 +51,20 @@ export class MoveAlongPathTrack extends BaseAnimationTrack {
     this.pathPoints = path.points3D;
     this.numSegments = Math.max(0, Math.floor((this.pathPoints.length - 1) / 3));
 
-    this.centerOffset = [
-      mobject.getCenter()[0] - mobject.position[0],
-      mobject.getCenter()[1] - mobject.position[1],
-      mobject.getCenter()[2] - mobject.position[2],
-    ];
+    this.centerOffset = null;
 
     this.rotateAlongPath = rotateAlongPath;
   }
 
   prepare(): void {}
+
+  captureStartState(): void {
+    this.centerOffset = [
+      this.mobject.getCenter()[0] - this.mobject.position[0],
+      this.mobject.getCenter()[1] - this.mobject.position[1],
+      this.mobject.getCenter()[2] - this.mobject.position[2],
+    ];
+  }
 
   private getPositionAtAlpha(alpha: number): Vec3 {
     if (this.numSegments === 0 || this.pathPoints.length < 4) {
@@ -83,6 +87,9 @@ export class MoveAlongPathTrack extends BaseAnimationTrack {
   }
 
   interpolate(alpha: number): void {
+    if (this.centerOffset === null) {
+      return;
+    }
     const position = this.getPositionAtAlpha(alpha);
 
     const targetPos: Vec3 = [

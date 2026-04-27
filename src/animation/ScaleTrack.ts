@@ -31,13 +31,17 @@ export class ScaleTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Defer start scale capture until animation begins
+  }
+
+  captureStartState(): void {
+    if (this.startScale === null) {
+      this.startScale = [...this.mobject.scale] as Vec3;
+    }
   }
 
   interpolate(alpha: number): void {
-    // Capture start scale on first frame if not set
     if (this.startScale === null) {
-      this.startScale = [...this.mobject.scale] as Vec3;
+      return;
     }
     this.mobject.scale = lerpVec3(this.startScale, this.endScale, alpha);
     this.mobject.markDirty();

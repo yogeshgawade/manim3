@@ -49,7 +49,9 @@ export class IndicateTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Capture initial state
+  }
+
+  captureStartState(): void {
     this.startScale = [...this.mobject.scale] as Vec3;
     this.startColor = this.mobject.color;
     this.startFillColor = this.mobject.fillColor;

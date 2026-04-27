@@ -32,12 +32,12 @@ async function runAnimation() {
   scene.scheduler.reset();
 
   // Phase 1: Fade in the equation
- // scene.at(0).play(fadeIn(equation, { duration: 1, rateFunc: smooth }));
+  scene.at(0).play(fadeIn(equation, { duration: 1, rateFunc: smooth, lagRatio: 0.5 }));
   console.log('[Uncreate Test] Phase 1: MathTex fade in');
 
   // Phase 2: Uncreate (reverse draw) the equation
-  scene.at('+=0.5').play(
-    create(equation, { duration: 0.5, rateFunc: linear, lagRatio: 0.33, strokeFillLagRatio: 0.66 })
+  scene.at('+=1').play(
+    create(equation, { duration: 1, rateFunc: linear, strokeFillLagRatio: 0.66 , lagRatio: 0.1 })
   );
   console.log('[Uncreate Test] Phase 2: MathTex uncreate (reverse draw)');
 

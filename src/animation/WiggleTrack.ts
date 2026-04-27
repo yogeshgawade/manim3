@@ -52,6 +52,9 @@ export class WiggleTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+  }
+
+  captureStartState(): void {
     this.startRotation = [...this.mobject.rotation] as Vec3;
     this.startScale = [...this.mobject.scale] as Vec3;
   }

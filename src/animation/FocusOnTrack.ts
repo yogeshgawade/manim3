@@ -61,13 +61,14 @@ export class FocusOnTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this.dispose();
+    this.prepared = false;
+  }
+
+  captureStartState(): void {
     if (this.prepared) return;
     this.prepared = true;
-
     this.center = this.mobject.getCenter();
-
-    // Create concentric rings as child mobjects
-    // Spread rings across radius range so they're visible
     for (let i = 0; i < this.numRings; i++) {
       const spreadProgress = i / (this.numRings - 1 || 1);
       const initialRadius = this.startRadius + (this.endRadius - this.startRadius) * spreadProgress;
@@ -79,9 +80,8 @@ export class FocusOnTrack extends BaseAnimationTrack {
       });
       ring.position = this.center;
       ring.opacity = 0;
-      // Store ring index and speed for animation
       (ring as any)._ringIndex = i;
-      (ring as any)._ringSpeed = 1 + i * 0.2; // Faster rings catch up
+      (ring as any)._ringSpeed = 1 + i * 0.2;
       this.rings.push(ring);
       this.mobject.add(ring);
     }
@@ -121,6 +121,7 @@ export class FocusOnTrack extends BaseAnimationTrack {
       this.mobject.remove(ring);
     }
     this.rings = [];
+    this.prepared = false;
   }
 }
 

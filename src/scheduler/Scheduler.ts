@@ -1,5 +1,5 @@
 /**
- * Scheduler — Single source of truth for time.
+ * Scheduler - Single source of truth for time.
  * One rAF loop drives all animations, audio, and rendering.
  */
 
@@ -11,6 +11,7 @@ export interface ScheduledTrack {
   track: AnimationTrack;
   startTime: number;
   endTime: number;
+  startStateCaptured: boolean;
 }
 
 export class Scheduler {
@@ -23,13 +24,10 @@ export class Scheduler {
   private _updaters: UpdaterTrack[] = [];
   private _bookmarks = new Map<string, number>();
   private _lastTrackEndTime = 0;
-  private _prevClock: number = 0;
+  private _prevClock = 0;
 
-  // Callbacks
   onFrameReady?: () => void;
   onComplete?: () => void;
-
-  // ── Playback ─────────────────────────────────────────────────────────────
 
   play(): void {
     if (this._isPlaying) return;
@@ -52,6 +50,8 @@ export class Scheduler {
 
   seek(t: number): void {
     this._clock = Math.max(0, Math.min(t, this._totalDuration));
+    this._prepareTracksForEvaluation();
+    this._captureTrackStartStatesUpTo(this._clock);
     this._applyAllTracksAtTime(this._clock);
     this.onFrameReady?.();
   }
@@ -68,12 +68,11 @@ export class Scheduler {
     this._prevClock = 0;
   }
 
-  // ── Track Management ───────────────────────────────────────────────────────
-
   addTrack(track: AnimationTrack, startTime: number): void {
     track.prepare();
     const endTime = startTime + track.duration;
-    this._tracks.push({ track, startTime, endTime });
+    this._tracks.push({ track, startTime, endTime, startStateCaptured: false });
+    this._tracks.sort((a, b) => a.startTime - b.startTime);
     this._totalDuration = Math.max(this._totalDuration, endTime);
     this._lastTrackEndTime = Math.max(this._lastTrackEndTime, endTime);
   }
@@ -97,8 +96,6 @@ export class Scheduler {
     return this._bookmarks.get(name);
   }
 
-  // ── State Queries ────────────────────────────────────────────────────────
-
   get clock(): number {
     return this._clock;
   }
@@ -115,27 +112,15 @@ export class Scheduler {
     return this._lastTrackEndTime;
   }
 
-  // ── Timeline Builder ───────────────────────────────────────────────────
-
-  /**
-   * Create a TimelineBuilder for positioning tracks at a specific time.
-   * Supports: number (absolute), '+=' (relative), '<' (same as last start), 'bookmark:name'
-   */
   at(position: TimePosition): TimelineBuilder {
     return new TimelineBuilder(this, position);
   }
 
-  /**
-   * Build multiple tracks at specific positions and return total duration.
-   * This allows pre-building the entire timeline before playing.
-   */
   buildTimeline(buildFn: (builder: TimelineBuilder) => void): number {
     const builder = new TimelineBuilder(this, 0);
     buildFn(builder);
     return this._totalDuration;
   }
-
-  // ── Single rAF Tick ──────────────────────────────────────────────────────
 
   private _tick = (timestamp: number) => {
     if (!this._isPlaying) return;
@@ -145,18 +130,13 @@ export class Scheduler {
     this._lastTimestamp = timestamp;
     this._clock += dt;
 
-    // 1. Run updaters
     for (const updater of this._updaters) {
       updater.tick(dt);
     }
 
-    // 2. Apply all animation tracks at current time
     this._applyAllTracksAtTime(this._clock);
-
-    // 3. Signal renderer to render one frame
     this.onFrameReady?.();
 
-    // 4. Check completion
     if (this._clock >= this._totalDuration) {
       this._isPlaying = false;
       this.onComplete?.();
@@ -164,35 +144,87 @@ export class Scheduler {
   };
 
   private _applyAllTracksAtTime(t: number): void {
-    for (const { track, startTime, endTime } of this._tracks) {
+    for (const scheduled of this._tracks) {
+      const { track, startTime, endTime } = scheduled;
       if (t < startTime) {
         if (this._prevClock >= startTime) {
           track.reset?.();
         }
-      } else if (t >= endTime) {
+        continue;
+      }
+
+      if (!scheduled.startStateCaptured) {
+        track.captureStartState?.();
+        scheduled.startStateCaptured = true;
+      }
+
+      if (t >= endTime) {
         track.interpolate(track.rateFunc(1));
       } else {
         const rawAlpha = (t - startTime) / (endTime - startTime);
-        const alpha = track.rateFunc(rawAlpha);
-        track.interpolate(alpha);
+        track.interpolate(track.rateFunc(rawAlpha));
       }
     }
     this._prevClock = t;
   }
-}
 
-// ── Timeline Builder ─────────────────────────────────────────────────────
+  private _prepareTracksForEvaluation(): void {
+    for (const scheduled of this._tracks) {
+      scheduled.track.prepare();
+      scheduled.startStateCaptured = false;
+    }
+  }
+
+  private _captureTrackStartStatesUpTo(t: number): void {
+    for (let i = 0; i < this._tracks.length; i++) {
+      const scheduled = this._tracks[i];
+      if (scheduled.startTime > t) {
+        break;
+      }
+      this._captureTrackStartStateAtIndex(i);
+    }
+  }
+
+  private _captureTrackStartStateAtIndex(index: number): void {
+    const scheduled = this._tracks[index];
+    if (scheduled.startStateCaptured) {
+      return;
+    }
+
+    for (let i = 0; i < index; i++) {
+      const prior = this._tracks[i];
+      if (!prior.startStateCaptured) {
+        this._captureTrackStartStateAtIndex(i);
+      }
+      this._applyScheduledTrackAtTime(prior, scheduled.startTime);
+    }
+
+    scheduled.track.captureStartState?.();
+    scheduled.startStateCaptured = true;
+  }
+
+  private _applyScheduledTrackAtTime(scheduled: ScheduledTrack, t: number): void {
+    const { track, startTime, endTime } = scheduled;
+    if (t < startTime) {
+      return;
+    }
+
+    if (t >= endTime) {
+      track.interpolate(track.rateFunc(1));
+      return;
+    }
+
+    const rawAlpha = (t - startTime) / (endTime - startTime);
+    track.interpolate(track.rateFunc(rawAlpha));
+  }
+}
 
 export class TimelineBuilder {
   constructor(
     private scheduler: Scheduler,
     private position: TimePosition
-  ) { }
+  ) {}
 
-  /**
-   * Position the next animation at a specific time.
-   * Supports: number (absolute), '+=' (relative), '<' (same as last start), 'bookmark:name'
-   */
   at(position: TimePosition): TimelineBuilder {
     return new TimelineBuilder(this.scheduler, position);
   }
@@ -200,11 +232,9 @@ export class TimelineBuilder {
   play(...tracks: AnimationTrack[]): TimelineBuilder {
     const resolvedTime = this._resolvePosition();
     for (const track of tracks) {
-      track.prepare(); // Initialize track before adding
       this.scheduler.addTrack(track, resolvedTime);
     }
     const endTime = resolvedTime + Math.max(...tracks.map(t => t.duration), 0);
-    // Return new builder positioned at end of these tracks for chaining
     return new TimelineBuilder(this.scheduler, endTime);
   }
 
@@ -217,7 +247,6 @@ export class TimelineBuilder {
     }
 
     if (pos === '<') {
-      // Same time as last track start — simplified to last end
       return lastEnd;
     }
 

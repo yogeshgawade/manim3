@@ -24,15 +24,10 @@ export class FadeTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Reset capture flag so opacity is captured on first interpolate() call.
-    // This ensures we capture opacity after all prior tracks have run.
     this.opacityCaptured = false;
   }
 
-  interpolate(alpha: number): void {
-    // On first call, determine the actual starting opacity:
-    // - If startOpacity is null, capture current mobject.opacity (for fadeOut after other anims)
-    // - If startOpacity is a number, use that value (for fadeIn from explicit value)
+  captureStartState(): void {
     if (!this.opacityCaptured) {
       if (this.startOpacity === null) {
         this.capturedOpacity = this.mobject.opacity;
@@ -41,6 +36,9 @@ export class FadeTrack extends BaseAnimationTrack {
       }
       this.opacityCaptured = true;
     }
+  }
+
+  interpolate(alpha: number): void {
     const opacity = this.capturedOpacity + (this.endOpacity - this.capturedOpacity) * alpha;
     this.mobject.opacity = opacity;
     this.mobject.markDirty();

@@ -26,18 +26,18 @@ function lerp(a: number, b: number, t: number): number {
  * ColorTrack — Interpolates both stroke color and fill color using RGB lerp.
  */
 export class ColorTrack extends BaseAnimationTrack {
-  private startStrokeColor: string;
+  private startStrokeColor: string | null;
   private endStrokeColor: string;
-  private startFillColor: string;
+  private startFillColor: string | null;
   private endFillColor: string;
-  private startStrokeRgb: { r: number; g: number; b: number };
+  private startStrokeRgb: { r: number; g: number; b: number } | null;
   private endStrokeRgb: { r: number; g: number; b: number };
-  private startFillRgb: { r: number; g: number; b: number };
+  private startFillRgb: { r: number; g: number; b: number } | null;
   private endFillRgb: { r: number; g: number; b: number };
 
   constructor(
     mobject: Mobject,
-    from: string,
+    from: string | null,
     to: string,
     duration: number = 1,
     rateFunc: RateFunction = (t) => t,
@@ -47,18 +47,30 @@ export class ColorTrack extends BaseAnimationTrack {
     this.endStrokeColor = to;
     this.startFillColor = from;
     this.endFillColor = to;
-    this.startStrokeRgb = hexToRgb(from);
+    this.startStrokeRgb = from ? hexToRgb(from) : null;
     this.endStrokeRgb = hexToRgb(to);
-    this.startFillRgb = hexToRgb(from);
+    this.startFillRgb = from ? hexToRgb(from) : null;
     this.endFillRgb = hexToRgb(to);
   }
 
   prepare(): void {
-    // Capture current state as start, target as end
-    // Note: We do NOT modify mobject here - let it stay at current state
+  }
+
+  captureStartState(): void {
+    if (this.startStrokeColor === null) {
+      this.startStrokeColor = this.mobject.color;
+      this.startStrokeRgb = hexToRgb(this.startStrokeColor);
+    }
+    if (this.startFillColor === null) {
+      this.startFillColor = this.mobject.fillColor;
+      this.startFillRgb = hexToRgb(this.startFillColor);
+    }
   }
 
   interpolate(alpha: number): void {
+    if (!this.startStrokeRgb || !this.startFillRgb) {
+      return;
+    }
     // Lerp stroke color
     const sr = lerp(this.startStrokeRgb.r, this.endStrokeRgb.r, alpha);
     const sg = lerp(this.startStrokeRgb.g, this.endStrokeRgb.g, alpha);
@@ -88,5 +100,5 @@ export interface ColorToOptions {
 // Factory function
 export function colorTo(mob: Mobject, target: string, options: ColorToOptions = {}): ColorTrack {
   const { duration = 1, rateFunc } = options;
-  return new ColorTrack(mob, mob.color, target, duration, rateFunc);
+  return new ColorTrack(mob, null, target, duration, rateFunc);
 }

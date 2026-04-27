@@ -42,6 +42,9 @@ export class BlinkTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+  }
+
+  captureStartState(): void {
     this.startOpacity = this.mobject.opacity;
   }
 

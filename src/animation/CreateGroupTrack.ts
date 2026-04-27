@@ -18,25 +18,14 @@ export class CreateGroupTrack implements AnimationTrack {
   remover = false;
 
   private childTracks: AnimationTrack[] = [];
-  private _childrenBuilt = false;
+  private prepared = false;
 
   get mobject(): Mobject {
     return this.targetGroup;
   }
 
   get duration(): number {
-    if (!this._childrenBuilt || this.childTracks.length === 0) {
-      return this.trackDuration;
-    }
-
-    if (this.lagRatio > 0) {
-      // stagger mode: total duration includes overlap
-      const maxChildDur = Math.max(...this.childTracks.map(t => t.duration), 0);
-      const fullLen = (this.childTracks.length - 1) * this.lagRatio + 1;
-      return maxChildDur * fullLen;
-    }
-
-    return Math.max(...this.childTracks.map(t => t.duration), 0);
+    return this.trackDuration;
   }
 
   get rateFunc(): RateFunction {
@@ -51,47 +40,51 @@ export class CreateGroupTrack implements AnimationTrack {
     private strokeFillLagRatio: number = 0.5,
   ) { }
 
-  private ensureChildTracksBuilt(): void {
-    if (this._childrenBuilt) return;
-    this._childrenBuilt = true;
-
-    const family = this.targetGroup.getFamily();
-
-    for (const mob of family) {
-      const vmob = mob as VMobject;
-      // Use CreateTrack for VMobjects with points (stroke animation)
-      if (vmob.points3D && vmob.points3D.length > 0) {
-        const track = new CreateTrack(
-          vmob,
-          this.trackDuration,
-          this.trackRateFunc,
-          this.strokeFillLagRatio,
-        );
-        this.childTracks.push(track);
-      }
-      // Use FadeTrack for non-VMobjects (Text, etc.) - simple fade in
-      else {
-        const track = new FadeTrack(
-          mob,
-          0,
-          1,
-          this.trackDuration,
-          this.trackRateFunc,
-        );
-        this.childTracks.push(track);
-      }
+  prepare(): void {
+    for (const track of this.childTracks) {
+      track.dispose();
     }
+    this.childTracks = [];
+    this.prepared = false;
   }
 
-  prepare(): void {
-    this.ensureChildTracksBuilt();
+  captureStartState(): void {
+    if (!this.prepared) {
+      this.prepared = true;
+      const family = this.targetGroup.getFamily();
+
+      for (const mob of family) {
+        const vmob = mob as VMobject;
+        if (vmob.points3D && vmob.points3D.length > 0) {
+          const track = new CreateTrack(
+            vmob,
+            this.trackDuration,
+            this.trackRateFunc,
+            this.strokeFillLagRatio,
+          );
+          track.prepare();
+          this.childTracks.push(track);
+        } else {
+          const track = new FadeTrack(
+            mob,
+            0,
+            1,
+            this.trackDuration,
+            this.trackRateFunc,
+          );
+          track.prepare();
+          this.childTracks.push(track);
+        }
+      }
+    }
+
     for (const track of this.childTracks) {
-      track.prepare();
+      track.captureStartState?.();
     }
   }
 
   interpolate(alpha: number): void {
-    if (!this._childrenBuilt) return;
+    if (!this.prepared) return;
 
     const n = this.childTracks.length;
     for (let i = 0; i < n; i++) {
@@ -106,14 +99,15 @@ export class CreateGroupTrack implements AnimationTrack {
    * - lagRatio > 0 → children are spread across [0, 1] with overlap.
    */
   private computeChildAlpha(alpha: number, i: number, n: number): number {
-    if (this.lagRatio === 0) return alpha;
+    if (this.lagRatio === 0 || n <= 1) return alpha;
 
-    const fullLen = (n - 1) * this.lagRatio + 1;
-    const start = (i * this.lagRatio) / fullLen;
-    const end = start + 1 / fullLen;
+    // Standard manim stagger: child runtime ratio accounts for lag between starts
+    const childRunTimeRatio = 1 / (1 + (n - 1) * this.lagRatio);
+    const start = i * this.lagRatio * childRunTimeRatio;
+    const end = start + childRunTimeRatio;
 
-    if (alpha < start) return 0;
-    if (alpha > end) return 1;
+    if (alpha <= start) return 0;
+    if (alpha >= end) return 1;
     return (alpha - start) / (end - start);
   }
 
@@ -122,7 +116,7 @@ export class CreateGroupTrack implements AnimationTrack {
       track.dispose();
     }
     this.childTracks = [];
-    this._childrenBuilt = false;
+    this.prepared = false;
   }
 
   reset(): void {
@@ -167,10 +161,10 @@ export function uncreate(group: Mobject, options: CreateOptions = {}): CreateGro
 export function createReverse(group: Mobject, options: CreateOptions = {}): CreateGroupTrack {
   const { duration = 1, rateFunc, lagRatio = 0, strokeFillLagRatio = 0.5 } = options;
   const track = new CreateGroupTrack(group, duration, rateFunc, lagRatio, strokeFillLagRatio);
-  const origPrepare = track.prepare.bind(track);
+  const origCaptureStartState = track.captureStartState.bind(track);
   let reversed = false;
-  track.prepare = () => {
-    origPrepare();
+  track.captureStartState = () => {
+    origCaptureStartState();
     if (!reversed) {
       (track as any).childTracks.reverse();
       reversed = true;

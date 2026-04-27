@@ -31,12 +31,20 @@ export class MoveTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    if (this.startPos === null) {
+      this.startPos = null;
+    }
+  }
+
+  captureStartState(): void {
+    if (this.startPos === null) {
+      this.startPos = [...this.mobject.position] as Vec3;
+    }
   }
 
   interpolate(alpha: number): void {
-    // Defer start position capture until animation actually runs
     if (this.startPos === null) {
-      this.startPos = [...this.mobject.position] as Vec3;
+      return;
     }
     this.mobject.position = lerpVec3(this.startPos, this.endPos, alpha);
     this.mobject.markDirty();

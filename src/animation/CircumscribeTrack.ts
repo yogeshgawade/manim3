@@ -62,10 +62,12 @@ export class CircumscribeTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Always clean up previous shape before creating a new one
     this._destroyShape();
+    this.bounds = { width: 1, height: 1 };
+  }
 
-    // Compute bounds and center from mobject geometry
+  captureStartState(): void {
+    this._destroyShape();
     this.center = [...this.mobject.getCenter()] as Vec3;
 
     // Recursively collect points from all children (works for VMobject, VGroup, MathTex, etc.)
@@ -120,9 +122,6 @@ export class CircumscribeTrack extends BaseAnimationTrack {
   }
 
   interpolate(alpha: number): void {
-    if (!this.shapeMobject && alpha < 1) {
-      this.prepare();
-    }
     if (!this.shapeMobject) return;
 
     if (alpha >= 1 && this.shouldFadeOut) {  // ← only destroy if fadeOut is true

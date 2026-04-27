@@ -65,16 +65,17 @@ export class ValueTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Start value captured on first interpolate()
-     this.started = false;
+    this.started = false;
   }
 
-  interpolate(alpha: number): void {
-    // Capture start value on first call (when animation actually starts)
+  captureStartState(): void {
     if (!this.started) {
       this.start = this.tracker.get();
       this.started = true;
     }
+  }
+
+  interpolate(alpha: number): void {
     const v = this.start + (this.end - this.start) * alpha;
     this.tracker.set(v);
     if (this.onChange) this.onChange(v);

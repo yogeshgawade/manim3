@@ -2,9 +2,10 @@ import type { Mobject } from '../core/Mobject';
 import type { RateFunction } from '../core/types';
 
 /**
- * AnimationTrack — Pure interpolation function for animations.
- * No side effects except setting mobject state.
- * Deterministic: same alpha → same result.
+ * AnimationTrack lifecycle:
+ * - prepare(): reset transient state and helper resources for a fresh evaluation pass
+ * - captureStartState(): read the live state this track should animate from
+ * - interpolate(alpha): apply animation using captured state + track config
  */
 export interface AnimationTrack {
   id: string;
@@ -13,14 +14,17 @@ export interface AnimationTrack {
   rateFunc: RateFunction;
   remover: boolean;
 
-  /** Called ONCE at build time when added to Scheduler */
+  /** Scheduler setup/reset hook. Must not capture live start state here. */
   prepare(): void;
 
-  /** Pure function — deterministic for any alpha in [0, 1] */
+  /** Capture live mobject state at this track's resolved start time. */
+  captureStartState?(): void;
+
+  /** Apply animation for any alpha in [0, 1] using already-captured state. */
   interpolate(alpha: number): void;
 
   dispose(): void;
-  reset?(): void; 
+  reset?(): void;
 }
 
 export abstract class BaseAnimationTrack implements AnimationTrack {
@@ -34,6 +38,7 @@ export abstract class BaseAnimationTrack implements AnimationTrack {
   ) {}
 
   abstract prepare(): void;
+  captureStartState(): void {}
   abstract interpolate(alpha: number): void;
   dispose(): void {}
 }

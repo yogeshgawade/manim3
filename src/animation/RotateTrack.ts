@@ -14,12 +14,12 @@ function lerpVec3(a: Vec3, b: Vec3, t: number): Vec3 {
  * RotateTrack — Interpolates rotation (Euler angles) from one value to another.
  */
 export class RotateTrack extends BaseAnimationTrack {
-  private startRotation: Vec3;
+  private startRotation: Vec3 | null;
   private endRotation: Vec3;
 
   constructor(
     mobject: Mobject,
-    from: Vec3,
+    from: Vec3 | null,
     to: Vec3,
     duration: number = 1,
     rateFunc: RateFunction = (t) => t,
@@ -32,7 +32,16 @@ export class RotateTrack extends BaseAnimationTrack {
   prepare(): void {
   }
 
+  captureStartState(): void {
+    if (this.startRotation === null) {
+      this.startRotation = [...this.mobject.rotation] as Vec3;
+    }
+  }
+
   interpolate(alpha: number): void {
+    if (this.startRotation === null) {
+      return;
+    }
     this.mobject.rotation = lerpVec3(this.startRotation, this.endRotation, alpha);
     this.mobject.markDirty();
   }
@@ -48,5 +57,5 @@ export interface RotateToOptions {
 // Factory function
 export function rotateTo(mob: Mobject, target: Vec3, options: RotateToOptions = {}): RotateTrack {
   const { duration = 1, rateFunc } = options;
-  return new RotateTrack(mob, mob.rotation, target, duration, rateFunc);
+  return new RotateTrack(mob, null, target, duration, rateFunc);
 }

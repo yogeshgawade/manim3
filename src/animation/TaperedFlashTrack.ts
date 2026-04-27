@@ -56,10 +56,12 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // Always clean up previous segments before creating new ones
     this._destroySegments();
+    this.pathPoints = [];
+  }
 
-    // Get path points from VMobject or create a simple path
+  captureStartState(): void {
+    this._destroySegments();
     if (this.isVMobject) {
       const vmob = this.mobject as VMobject;
       this.pathPoints = vmob.points3D.map(p => [...p]);
@@ -75,7 +77,6 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
       ];
     }
 
-    // Pre-create flash segment lines with initial positions from path
     const numSegments = Math.max(1, this.pathPoints.length - 1);
     for (let i = 0; i < numSegments; i++) {
       const idx = Math.min(i, this.pathPoints.length - 2);
@@ -94,9 +95,6 @@ export class TaperedFlashTrack extends BaseAnimationTrack {
   }
 
   interpolate(alpha: number): void {
-    if (!this.flashSegments.length && alpha < 1) {
-      this.prepare();
-    }
     if (!this.flashSegments.length) return;
 
     if (alpha >= 1) {

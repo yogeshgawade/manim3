@@ -42,6 +42,12 @@ export class GroupTrack implements AnimationTrack {
     }
   }
 
+  captureStartState(): void {
+    for (const track of this.tracks) {
+      track.captureStartState?.();
+    }
+  }
+
   interpolate(alpha: number): void {
     for (let i = 0; i < this.tracks.length; i++) {
       const childAlpha = this.computeChildAlpha(alpha, i, this.tracks.length);

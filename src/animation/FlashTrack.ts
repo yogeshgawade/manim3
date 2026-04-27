@@ -53,15 +53,16 @@ export class FlashTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this.dispose();
+    this.prepared = false;
+  }
+
+  captureStartState(): void {
     if (this.prepared) return;
     this.prepared = true;
-
     this.center = this.mobject.getCenter();
-
-    // Create flash lines as child mobjects
     for (let i = 0; i < this.numLines; i++) {
       const angle = (i / this.numLines) * Math.PI * 2;
-      // Create line with small initial length (0.1) so it renders properly
       const innerX = this.center[0] + Math.cos(angle) * 0.1;
       const innerY = this.center[1] + Math.sin(angle) * 0.1;
       const line = new Line({
@@ -70,7 +71,6 @@ export class FlashTrack extends BaseAnimationTrack {
         color: this.flashColor,
         strokeWidth: this.lineWidth,
       });
-      // Store angle for interpolation
       (line as any)._flashAngle = angle;
       line.opacity = 0;
       line.fillOpacity = 0;
@@ -100,11 +100,11 @@ export class FlashTrack extends BaseAnimationTrack {
   }
 
   dispose(): void {
-    // Remove flash lines
     for (const line of this.flashLines) {
       this.mobject.remove(line);
     }
     this.flashLines = [];
+    this.prepared = false;
   }
 }
 

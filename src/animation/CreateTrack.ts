@@ -24,18 +24,17 @@ export class CreateTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this._prepared = false;
+  }
+
+  captureStartState(): void {
     if (this._prepared) return;
     this._prepared = true;
-
     const vmob = this.mobject as VMobject;
-
-
     this._originalFillOpacity = vmob.fillOpacity;
     this._hasFill = this._originalFillOpacity > 0;
     this._originalOpacity = vmob.opacity;
     this._wasTransparent = this._originalOpacity < 1;
-
-
   }
 
   dispose(): void {

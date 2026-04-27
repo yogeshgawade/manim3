@@ -45,8 +45,6 @@ export class MorphTrack extends BaseAnimationTrack {
   private startPath: string = '';
   private endPath: string = '';
 
-  // Flag: capture all start-state (opacity, rotation, position, scale, color) lazily
-  // on the very first interpolate() call, so prior animations are respected.
   private startCaptured: boolean = false;
 
   constructor(
@@ -67,7 +65,6 @@ export class MorphTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
-    // --- Teardown any previous state (safe to call on re-seek) ---
     if (this.gsapTween) {
       this.gsapTween.kill();
       this.gsapTween = null;
@@ -79,9 +76,7 @@ export class MorphTrack extends BaseAnimationTrack {
     this.startCaptured = false;
   }
 
-  interpolate(alpha: number): void {
-    // Build tween on first interpolate() call to capture fresh source state.
-    // This ensures chained morphs start from the actual post-morph state.
+  captureStartState(): void {
     if (!this.startCaptured) {
       const source = this.mobject as VMobject;
       this.startOpacity  = source.opacity;
@@ -140,7 +135,7 @@ export class MorphTrack extends BaseAnimationTrack {
         source.position = lerpVec3(this.startPosition, this.endPosition, progress);
         source.scale    = lerpVec3(this.startScale,    this.endScale,    progress);
         source.color    = lerpColor(this.startColor, this.endColor, progress);
-        source.opacity = lerp(this.startOpacity, this.endOpacity, progress);
+        //source.opacity = lerp(this.startOpacity, this.endOpacity, progress);
         source.fillColor = lerpColor(this.startFillColor, this.endFillColor, progress);
         source.markDirty();
       };
@@ -158,10 +153,11 @@ export class MorphTrack extends BaseAnimationTrack {
 
       this.startCaptured = true;
     }
+  }
 
+  interpolate(alpha: number): void {
     if (!this.tempPath || !this.gsapTween) return;
 
-    // Drive the tween to the requested progress and force an immediate synchronous render
     this.gsapTween.render(alpha, false, true);
   }
 

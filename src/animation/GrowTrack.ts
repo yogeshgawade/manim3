@@ -90,38 +90,33 @@ export class GrowFromPointTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this._prepared = false;
+    this.startScale = null;
+    this.endScale = null;
+    this.endPosition = null;
+    this.originalColor = null;
+    this.targetColor = null;
+  }
+
+  captureStartState(): void {
     if (this._prepared) return;
     this._prepared = true;
-
-    // Capture target state only - defer modifications to interpolate()
+    this.startScale = [0, 0, 0];
     this.endScale = [...this.mobject.scale] as Vec3;
     this.endPosition = [...this.mobject.position] as Vec3;
     this.targetColor = this.mobject.color;
-
-    // Save original color if we need to animate it
     if (this.pointColor) {
       this.originalColor = this.mobject.color;
     }
-
-    // Set opacity to 0 for all family members (mobject may be a Group)
     for (const mob of this.mobject.getFamily()) {
       mob.opacity = 0;
     }
   }
 
   interpolate(alpha: number): void {
-    // On first call, set the starting state (scale 0 at grow point)
-    if (this.startScale === null) {
-      this.startScale = [0, 0, 0];
-      // Apply initial state now
-      this.mobject.scale = [0, 0, 0];
-      this.mobject.position = [...this.growPoint] as Vec3;
-      if (this.pointColor && this.originalColor) {
-        this.mobject.color = this.pointColor;
-      }
+    if (this.startScale === null || this.endScale === null || this.endPosition === null) {
+      return;
     }
-
-    // Now interpolate
     this.mobject.scale = lerpVec3(this.startScale, this.endScale!, alpha);
     this.mobject.position = lerpVec3(this.growPoint, this.endPosition!, alpha);
 

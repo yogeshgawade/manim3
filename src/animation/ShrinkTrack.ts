@@ -33,21 +33,22 @@ export class ShrinkToCenterTrack extends BaseAnimationTrack {
   }
 
   prepare(): void {
+    this._prepared = false;
+    this.startScale = null;
+    this.endScale = null;
+  }
+
+  captureStartState(): void {
     if (this._prepared) return;
     this._prepared = true;
-
-    // Capture starting scale
     this.startScale = [...this.mobject.scale] as Vec3;
     this.endScale = [0, 0, 0];
   }
 
   interpolate(alpha: number): void {
-    // Ensure start scale is captured
-    if (this.startScale === null) {
-      this.startScale = [...this.mobject.scale] as Vec3;
+    if (this.startScale === null || this.endScale === null) {
+      return;
     }
-
-    // Interpolate scale from start to 0
     this.mobject.scale = lerpVec3(this.startScale, this.endScale!, alpha);
     this.mobject.markDirty();
   }
