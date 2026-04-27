@@ -1,6 +1,6 @@
 // NO import from 'three' — ever.
 import { Mobject } from './Mobject';
-import type { MobjectState } from './types';
+import type { MobjectState, Vec3 } from './types';
 
 export interface SubpathInfo {
   lengths: number[];  // Point count per subpath
@@ -42,6 +42,16 @@ export class VMobject extends Mobject {
     const existing = this.points3D;
     const newPts   = new VMobject().setPointsAsCorners(corners).points3D;
     return this.setPoints3D([...existing, ...newPts]);
+  }
+
+  protected override _getOwnBoundaryPoints(parentOffset: Vec3 = [0, 0, 0]): Vec3[] {
+    const absolutePosition = this._getAbsolutePosition(parentOffset);
+
+    return this.points3D.map((point) => [
+      absolutePosition[0] + (point[0] ?? 0),
+      absolutePosition[1] + (point[1] ?? 0),
+      absolutePosition[2] + (point[2] ?? 0),
+    ] as Vec3);
   }
 
   // Override captureState to include points3D and strokeWidths

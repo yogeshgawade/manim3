@@ -184,7 +184,11 @@ export class Rectangle extends VMobject {
   /**
    * Get a specific corner of the rectangle
    */
-  getCorner(corner: 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'): Vec3 {
+  getCorner(corner: 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft' | Vec3): Vec3 {
+    if (Array.isArray(corner)) {
+      return super.getCorner(corner);
+    }
+
     const halfWidth = this._width / 2;
     const halfHeight = this._height / 2;
     const [cx, cy, cz] = this._centerPoint;

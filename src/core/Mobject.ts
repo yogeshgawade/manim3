@@ -4,6 +4,9 @@ import type { Scene } from '../scene/Scene';
 
 let _idCounter = 0;
 const genId = () => `mob_${++_idCounter}`;
+const DEFAULT_FRAME_WIDTH = 14;
+const DEFAULT_FRAME_HEIGHT = 8;
+const DEFAULT_EDGE_BUFF = 0.5;
 
 export class Mobject {
   id:            string           = genId();
@@ -52,6 +55,30 @@ export class Mobject {
     return result;
   }
 
+  protected _getAbsolutePosition(parentOffset: Vec3 = [0, 0, 0]): Vec3 {
+    return [
+      parentOffset[0] + this.position[0],
+      parentOffset[1] + this.position[1],
+      parentOffset[2] + this.position[2],
+    ];
+  }
+
+  protected _getOwnBoundaryPoints(_parentOffset: Vec3 = [0, 0, 0]): Vec3[] {
+    return [];
+  }
+
+  protected _getBoundaryPoints(parentOffset: Vec3 = [0, 0, 0]): Vec3[] {
+    const absolutePosition = this._getAbsolutePosition(parentOffset);
+    const ownPoints = this._getOwnBoundaryPoints(parentOffset);
+    const childPoints = this.children.flatMap((child) => child._getBoundaryPoints(absolutePosition));
+
+    if (ownPoints.length > 0 || childPoints.length > 0) {
+      return [...ownPoints, ...childPoints];
+    }
+
+    return [absolutePosition];
+  }
+
   // ── Transform ─────────────────────────────────────────────
   shift(delta: Vec3): this {
     this.position = [
@@ -63,17 +90,148 @@ export class Mobject {
     return this;
   }
 
-  moveTo(target: Vec3): this {
-    this.position = [...target];
-    this.markDirty();
-    return this;
+  moveTo(target: Vec3 | Mobject): this {
+    const point = target instanceof Mobject ? target.getCenter() : target;
+    const center = this.getCenter();
+    return this.shift([
+      point[0] - center[0],
+      point[1] - center[1],
+      point[2] - center[2],
+    ]);
+  }
+
+  getCriticalPoint(direction: Vec3): Vec3 {
+    const boundaryPoints = this._getBoundaryPoints();
+    const [dx, dy, dz] = direction;
+
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+    for (const [x, y, z] of boundaryPoints) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (z < minZ) minZ = z;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+      if (z > maxZ) maxZ = z;
+    }
+
+    return [
+      dx > 0 ? maxX : (dx < 0 ? minX : (minX + maxX) / 2),
+      dy > 0 ? maxY : (dy < 0 ? minY : (minY + maxY) / 2),
+      dz > 0 ? maxZ : (dz < 0 ? minZ : (minZ + maxZ) / 2),
+    ];
+  }
+
+  getEdgeCenter(direction: Vec3): Vec3 {
+    return this.getCriticalPoint(direction);
+  }
+
+  getCorner(direction: Vec3): Vec3 {
+    return this.getCriticalPoint(direction);
   }
 
   getCenter(): Vec3 {
-    return [...this.position] as Vec3;
+    return this.getCriticalPoint([0, 0, 0]);
+  }
+
+  alignTo(target: Vec3 | Mobject, direction: Vec3 = [0, 0, 0]): this {
+    const point = target instanceof Mobject ? target.getCriticalPoint(direction) : target;
+    const current = this.getCriticalPoint(direction);
+    const delta: Vec3 = [0, 0, 0];
+
+    if (direction[0] !== 0) delta[0] = point[0] - current[0];
+    if (direction[1] !== 0) delta[1] = point[1] - current[1];
+    if (direction[2] !== 0) delta[2] = point[2] - current[2];
+
+    return this.shift(delta);
+  }
+
+  nextTo(
+    target: Vec3 | Mobject,
+    direction: Vec3 = [1, 0, 0],
+    buff = 0.25,
+    alignedEdge: Vec3 = [0, 0, 0],
+  ): this {
+    const point = target instanceof Mobject ? target.getCriticalPoint(direction) : target;
+    const oppositeDirection: Vec3 = [-direction[0], -direction[1], -direction[2]];
+    const current = this.getCriticalPoint(oppositeDirection);
+
+    this.shift([
+      point[0] + direction[0] * buff - current[0],
+      point[1] + direction[1] * buff - current[1],
+      point[2] + direction[2] * buff - current[2],
+    ]);
+
+    if (alignedEdge[0] !== 0 || alignedEdge[1] !== 0 || alignedEdge[2] !== 0) {
+      this.alignTo(target, alignedEdge);
+    }
+
+    return this;
   }
 
   // ── Dirty flag ────────────────────────────────────────────
+  center(): this {
+    return this.moveTo([0, 0, this.getCenter()[2]]);
+  }
+
+  toEdge(edge: Vec3 = [-1, 0, 0], buff = DEFAULT_EDGE_BUFF): this {
+    const frameTarget: Vec3 = [
+      edge[0] === 0 ? this.getCenter()[0] : edge[0] * (DEFAULT_FRAME_WIDTH / 2),
+      edge[1] === 0 ? this.getCenter()[1] : edge[1] * (DEFAULT_FRAME_HEIGHT / 2),
+      edge[2] === 0 ? this.getCenter()[2] : edge[2],
+    ];
+    const current = this.getCriticalPoint(edge);
+
+    return this.shift([
+      edge[0] === 0 ? 0 : frameTarget[0] - current[0] - edge[0] * buff,
+      edge[1] === 0 ? 0 : frameTarget[1] - current[1] - edge[1] * buff,
+      edge[2] === 0 ? 0 : frameTarget[2] - current[2] - edge[2] * buff,
+    ]);
+  }
+
+  toCorner(corner: Vec3 = [-1, -1, 0], buff = DEFAULT_EDGE_BUFF): this {
+    return this.toEdge(corner, buff);
+  }
+
+  getCoord(dim: number, direction: Vec3 = [0, 0, 0]): number {
+    return this.getCriticalPoint(direction)[dim];
+  }
+
+  setCoord(value: number, dim: number, direction: Vec3 = [0, 0, 0]): this {
+    const delta: Vec3 = [0, 0, 0];
+    delta[dim] = value - this.getCoord(dim, direction);
+    return this.shift(delta);
+  }
+
+  setX(x: number, direction: Vec3 = [0, 0, 0]): this {
+    return this.setCoord(x, 0, direction);
+  }
+
+  setY(y: number, direction: Vec3 = [0, 0, 0]): this {
+    return this.setCoord(y, 1, direction);
+  }
+
+  setZ(z: number, direction: Vec3 = [0, 0, 0]): this {
+    return this.setCoord(z, 2, direction);
+  }
+
+  matchCoord(target: Mobject, dim: number, direction: Vec3 = [0, 0, 0]): this {
+    return this.setCoord(target.getCoord(dim, direction), dim, direction);
+  }
+
+  matchX(target: Mobject, direction: Vec3 = [0, 0, 0]): this {
+    return this.matchCoord(target, 0, direction);
+  }
+
+  matchY(target: Mobject, direction: Vec3 = [0, 0, 0]): this {
+    return this.matchCoord(target, 1, direction);
+  }
+
+  matchZ(target: Mobject, direction: Vec3 = [0, 0, 0]): this {
+    return this.matchCoord(target, 2, direction);
+  }
+
   markDirty(): void {
     this.dirty = true;
   }

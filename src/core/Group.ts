@@ -7,10 +7,4 @@ export class Group extends Mobject {
     super();
     for (const mob of mobjects) this.add(mob);
   }
-
-  shift(delta: import('./types').Vec3): this {
-    // Shift self position AND all children
-    super.shift(delta);
-    return this;
-  }
 }
